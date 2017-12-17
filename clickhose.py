@@ -1,6 +1,6 @@
 import http.client
 import urllib.parse
-import ujson as json
+import json
 from collections import defaultdict
 import requests
 import sys
