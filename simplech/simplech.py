@@ -83,6 +83,20 @@ class ClickHouse:
     def __get_query(self, sql_query):
         return urllib.parse.urlencode(self.get_params(sql_query))
 
+    def __make_query(self, sql_query, body=None, method=None):
+        conn = self.__get_conn()
+        query_str = self.__get_query(sql_query)
+        logger.debug('Query string: %s', query_str)
+        if not method:
+            method = 'POST' if body else 'GET'
+        conn.request(method, f"/?{query_str}", body=body)
+        response = conn.getresponse()
+        if response.status != 200:
+            content = response.read()
+            logger.error('Wrong HTTP statusCode %s. Return: %s', response.status, content)
+            raise Exception(f'ClickHouse HTTP Error')
+        return response
+
     def flush(self, table):
         self.ch_insert(table, self.buffer[table])
         self.buffer[table] = ''
@@ -102,55 +116,19 @@ class ClickHouse:
     def ch_insert(self, table, body):
         conn = self.__get_conn()
         sql_query = f'INSERT INTO {table} FORMAT JSONEachRow'
-        query_str = self.__get_query(sql_query)
-        conn.request("POST", f"/?{query_str}", body.encode())
-        response = conn.getresponse()
-        content = response.read()
-        if response.status != 200:
-            logger.error('Wrong HTTP statusCode %s. Return: %s', response.status, content)
-            raise Exception(f'ClickHouse error {response.reason} (HTTP {response.status})')
+        self.__make_query(sql_query, body=body.encode())
 
     def post_raw(self, table, data):
         conn = self.__get_conn()
-        sql_query = 'INSERT INTO {table} FORMAT JSONEachRow'.format(table=table)
-        query_str = self.__get_query(sql_query)
-        conn.request("POST", f"/?{query_str}", data)
-        response = conn.getresponse()
-        content = response.read()
-        if response.status != 200:
-            logger.error('Wrong HTTP statusCode %s. Return: %s', response.status, content)
-            raise Exception(f'ClickHouse error {response.reason} (HTTP {response.status})')
-
-    def __make_query(self, sql_query):
-        conn = self.__get_conn()
-        query_str = self.__get_query(sql_query)
-        logger.debug('Query string: %s', query_str)
-        conn.request("GET", f"/?{query_str}")
-        return conn.getresponse()
+        sql_query = f'INSERT INTO {table} FORMAT JSONEachRow'
+        self.__make_query(sql_query, body=data)
 
     def select(self, sql_query):
-        response = self.__make_query(sql_query)
-        content = response.read()
-        if response.status != 200:
-            logger.error('Wrong HTTP statusCode %s. Return: %s', response.status, content)
-            raise Exception(f'ClickHouse error {response.reason} (HTTP {response.status})')
-        return content
+        return self.__make_query(sql_query).read()
 
     def select_stream(self, sql_query):
         response = self.__make_query(sql_query)
-        if response.status != 200:
-            content = response.read()
-            logger.error('Wrong HTTP statusCode %s. Return: %s', response.status, content)
-            raise Exception(f'ClickHouse error {response.reason} (HTTP {response.status})')
         return HTTPResp(response)
 
     def run(self, sql_query):
-        conn = self.__get_conn()
-        query_str = self.__get_query(sql_query)
-        conn.request("POST", f"/?{query_str}")
-        response = conn.getresponse()
-        content = response.read()
-        if response.status != 200:
-            logger.error('Wrong HTTP statusCode %s. Return: %s', response.status, content)
-            raise Exception(f'ClickHouse error {response.reason} (HTTP {response.status})')
-        return content
+        return self.__make_query(sql_query, method='POST').read()
