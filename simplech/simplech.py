@@ -45,7 +45,7 @@ class ClickHouse:
         self.buffer = defaultdict(str)
         self.buffer_i = defaultdict(int)
         self.session_id = session_id
-        self.buffer_limit = 3000
+        self.buffer_limit = 1000
 
     def flush_all(self):
         for k in self.buffer:
