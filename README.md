@@ -1,7 +1,7 @@
 # Simple ClickHouse lib
 
-Очень простая и библиотечка для работы с Yandex ClickHouse
-Используются низкоуровневое и быстрое http api, а также быстрый парсер/дампер ujson
+Very simple library for interract with ClickHouse. Internally it operate JSON documents.
+For performance reasons used low-level `http.client.HTTPConnection` and `ujson` dumper/parser.
 
 ## Использование
 
