@@ -1,7 +1,6 @@
 import http.client
 import urllib.parse
 from collections import defaultdict
-import requests
 import random
 import sys
 import ujson
@@ -18,7 +17,7 @@ class HTTPResp:
                    decode_unicode=None,
                    delimiter=None):
         pending = None
-        while not resp.isclosed():
+        while not self.resp.isclosed():
             chunk = self.resp.read(chunk_size)
             if pending is not None:
                 chunk = pending + chunk
@@ -117,7 +116,7 @@ class ClickHouse:
 
     def select_stream(self, query):
         resp = self.__select_resp(query)
-        if result.status != 200:
+        if resp.status != 200:
             res = resp.read()
             print(res)
             raise Exception('ClickHouse error:' + resp.reason)

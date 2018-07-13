@@ -1,6 +1,9 @@
 # Simple ClickHouse lib
 
 Очень простая и библиотечка для работы с Yandex ClickHouse
+Используются низкоуровневое и быстрое http api, а также быстрый парсер/дампер ujson
+
+## Использование
 
 	import json 
 	# или, при наличии: import ujson as json
@@ -9,7 +12,7 @@
 	ch = ClickHouse('m84s1.nktch.com', db='name')
 
 
-Пример чтения данных
+### Пример чтения данных
 
 	dt = date.today() - timedelta(days=2)
 	df = dt - timedelta(days=30)
@@ -23,7 +26,7 @@
 
 	res = ch.select(query).decode('utf-8')
 
-Чтение стримом
+### Построчное чтение данных
 
 	dt = date.today() - timedelta(days=2)
 	df = dt - timedelta(days=30)
@@ -35,22 +38,18 @@
 	FORMAT JSONEachRow
 	'''.format(df=df.strftime('%Y-%m-%d'), dt=dt.strftime('%Y-%m-%d'))
 
-	res = ch.select_stream(query)
+	for line in ch.select_stream(query).iter_lines():
+		decoded_line = line.decode('utf-8')
+		print(json.loads(decoded_line))
 
-	for line in res.iter_lines():
-	    if line:
-	        decoded_line = line.decode('utf-8')
-	        print(json.loads(decoded_line))
-
-
-Запись 
+### Запись 
 
 	for i in range(1, 1000):
 		self.storage.push('table', {'num': i})
 
 	self.storage.flush('metrika_events')
 
-если буфер доходит до 50к записей, происходит автоматическая отправка данных. Цифру можно поменять в конфиге
+если буфер доходит до 1к записей, происходит автоматическая отправка данных. Цифру можно поменять в конфиге
 
 
 
