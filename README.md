@@ -2,7 +2,9 @@
 
 Очень простая и библиотечка для работы с Yandex ClickHouse
 
-	import json
+	import json 
+	# или, при наличии: import ujson as json
+
 	from clickhose import ClickHouse
 	ch = ClickHouse('m84s1.nktch.com', db='name')
 

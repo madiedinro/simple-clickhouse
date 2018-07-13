@@ -1,0 +1,4 @@
+# Base
+urllib3
+requests
+ujson
