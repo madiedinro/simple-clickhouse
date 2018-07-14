@@ -98,10 +98,16 @@ class ClickHouse:
         return response
 
     def flush(self, table):
+        """
+        Flushing buffer to DB
+        """
         self.ch_insert(table, self.buffer[table])
         self.buffer[table] = ''
 
     def push(self, table, doc, jsonDump=True):
+        """
+        Add document to upload chunk
+        """
         try:
             if jsonDump == True:
                 doc = ujson.dumps(doc, ensure_ascii=False)
