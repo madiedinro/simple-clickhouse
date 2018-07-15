@@ -5,11 +5,15 @@ For performance reasons used low-level `http.client.HTTPConnection` and `ujson` 
 
 ## Использование
 
-	import json 
-	# или, при наличии: import ujson as json
+	# установка
+	pip install "git+https://github.com/madiedinro/simple-clickhouse"
 
-	from clickhose import ClickHouse
-	ch = ClickHouse('m84s1.nktch.com', db='name')
+
+	# быстрее обычного json
+	import ujson as json
+
+	from simplech import ClickHouse
+	ch = ClickHouse(host='host', port=9090, user='default', password="default",  db='default')
 
 
 ### Пример чтения данных
