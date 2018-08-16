@@ -1,6 +1,7 @@
 from collections import defaultdict
 import logging
 import sys
+import os
 import http.client
 import urllib.parse
 import random
@@ -47,32 +48,52 @@ class HTTPResp:
 
 
 class ClickHouse:
-    def __init__(self, host='localhost', port=8123, db='default', user=None, password=None, session_id=None):
-        self.host = host
-        self.port = port
-        self.db = db
-        self.base_url = f"{host}:{port}"
+    def __init__(self,
+                 scheme='http',
+                 host='localhost',
+                 port=8123,
+                 db='default',
+                 user=None,
+                 password=None,
+                 session_id=None,
+                 dsn=None):
+
+        sel_dns = dsn or os.getenv('CH_DSN', None) or os.getenv(
+            'CLICKHOUSE_DSN', None)
+        if sel_dns:
+            logger.debug(f"using DSN {sel_dns}")
+            parts = urllib.parse.urlparse(sel_dns)
+            self.scheme = parts.scheme
+            self.host = parts.hostname
+            self.port = parts.port
+            self.db = str(parts.path).strip('/')
+            self.user = parts.username
+            self.password = parts.password
+        else:
+            self.host = host
+            self.port = port
+            self.db = db
+            self.user = user
+            self.password = password
+            self.scheme = scheme
+
+        self.base_url = f"{self.host}:{self.port}"
         self.buffer = defaultdict(str)
         self.buffer_i = defaultdict(int)
         self.session_id = session_id
-        self.user = user
-        self.password = password
         self.buffer_limit = 1000
-    
+
     def flush_all(self):
         for k in self.buffer:
             self.flush(k)
 
     def get_params(self, query):
-        params = {
-            'query': query,
-            'database': self.db
-        }
-        if self.session_id: 
+        params = {'query': query, 'database': self.db}
+        if self.session_id:
             params['session_id'] = self.session_id
-        if self.user: 
+        if self.user:
             params['user'] = self.user
-        if self.password: 
+        if self.password:
             params['password'] = self.password
         return params
 
@@ -93,7 +114,8 @@ class ClickHouse:
         response = conn.getresponse()
         if response.status != 200:
             content = response.read()
-            logger.error('Wrong HTTP statusCode %s. Return: %s', response.status, content)
+            logger.error('Wrong HTTP statusCode %s. Return: %s',
+                         response.status, content)
             raise Exception(f'ClickHouse HTTP Error')
         return response
 
