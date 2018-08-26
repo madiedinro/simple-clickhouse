@@ -50,9 +50,9 @@ class HTTPResp:
 class ClickHouse:
     def __init__(self,
                  scheme='http',
-                 host='localhost',
-                 port=8123,
-                 db='default',
+                 host=None,
+                 port=None,
+                 db=None,
                  user=None,
                  password=None,
                  session_id=None,
@@ -60,7 +60,7 @@ class ClickHouse:
 
         sel_dns = dsn or os.getenv('CH_DSN', None) or os.getenv(
             'CLICKHOUSE_DSN', None)
-        if sel_dns:
+        if sel_dns and not (host or port or db):
             logger.debug(f"using DSN {sel_dns}")
             parts = urllib.parse.urlparse(sel_dns)
             self.scheme = parts.scheme
@@ -70,9 +70,9 @@ class ClickHouse:
             self.user = parts.username
             self.password = parts.password
         else:
-            self.host = host
-            self.port = port
-            self.db = db
+            self.host = host or '127.0.0.1'
+            self.port = port or 8123
+            self.db = db or 'default'
             self.user = user
             self.password = password
             self.scheme = scheme
