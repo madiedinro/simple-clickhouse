@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='simplech',
-    version='0.1.1',
+    version='0.2.0',
     author='Dmitry Rodin',
     author_email='madiedinro@gmail.com',
     license='MIT',
@@ -10,7 +10,7 @@ setup(
     long_description="""
     """,
     packages=find_packages(exclude=['contrib', 'docs', 'tests']),
-    url='https://github.com/madiedinro',
+    url='https://github.com/madiedinro/simple-clickhouse',
     include_package_data=True,
     install_requires=[
         'ujson'
@@ -23,6 +23,6 @@ setup(
         'Programming Language :: Python :: 3.6',
     ],
     project_urls={  # Optional
-        'Homepage': 'https://github.com/madiedinro'
+        'Homepage': 'https://github.com/madiedinro/simple-clickhouse'
     }
 )

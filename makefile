@@ -9,6 +9,7 @@ clean-build:
 	rm -rf dist/
 	rm -rf *.egg-info
 
-upload:
-	python setup.py sdist bdist_wheel upload
-	make clean-build
+sdist-upload:
+	python setup.py sdist upload
+
+upload: clean-build sdist-upload clean-build clean-pyc

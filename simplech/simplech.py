@@ -1,4 +1,5 @@
 from collections import defaultdict
+from time import time
 import logging
 import sys
 import os
@@ -10,6 +11,7 @@ import ujson
 
 ITER_CHUNK_SIZE = 512
 LOGGER_FORMAT = '%(asctime)s %(levelname)s %(message)s'
+FORMAT_EACHROW = ' FORMAT JSONEachRow'
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.WARN)
@@ -54,21 +56,34 @@ class ClickHouse:
                  port=None,
                  db=None,
                  user=None,
-                 password=None,
-                 session_id=None,
-                 dsn=None):
+                 password="",
+                 session=False,
+                 session_id="",
+                 dsn="",
+                 debug=False,
+                 buffer_limit=1000):
 
-        sel_dns = dsn or os.getenv('CH_DSN', None) or os.getenv(
-            'CLICKHOUSE_DSN', None)
-        if sel_dns and not (host or port or db):
-            logger.debug(f"using DSN {sel_dns}")
-            parts = urllib.parse.urlparse(sel_dns)
+        if debug:
+            self.set_debug()
+
+        def_params = (
+            not host and not port and not db and not user and not password)
+        dsn_lookup = (dsn
+                      or os.getenv('CH_DSN', None)
+                      or os.getenv('CLICKHOUSE_DSN', None))
+
+        if dsn_lookup and def_params:
+
+            logger.debug(f"using DSN {dsn_lookup}")
+
+            parts = urllib.parse.urlparse(dsn_lookup)
             self.scheme = parts.scheme
             self.host = parts.hostname
             self.port = parts.port
             self.db = str(parts.path).strip('/')
             self.user = parts.username
             self.password = parts.password
+
         else:
             self.host = host or '127.0.0.1'
             self.port = port or 8123
@@ -81,7 +96,10 @@ class ClickHouse:
         self.buffer = defaultdict(str)
         self.buffer_i = defaultdict(int)
         self.session_id = session_id
-        self.buffer_limit = 1000
+        self.buffer_limit = buffer_limit
+
+        if session:
+            self.session_id = session or str(time())
 
     def flush_all(self):
         for k in self.buffer:
@@ -99,7 +117,10 @@ class ClickHouse:
 
     def __get_conn(self):
         logger.debug('Conn base url: %s', self.base_url)
-        return http.client.HTTPConnection(self.base_url)
+        conn = http.client.HTTPConnection(self.base_url)
+        if logger.level == logging.DEBUG:
+            conn.set_debuglevel(logger.level)
+        return conn
 
     def __get_query(self, sql_query):
         return urllib.parse.urlencode(self.get_params(sql_query))
@@ -117,6 +138,8 @@ class ClickHouse:
             logger.error('Wrong HTTP statusCode %s. Return: %s',
                          response.status, content)
             raise Exception(f'ClickHouse HTTP Error')
+        logger.debug(
+            f'Server response status: {response.status}, content-length: {response.length}')
         return response
 
     def flush(self, table):
@@ -133,7 +156,7 @@ class ClickHouse:
         try:
             if jsonDump == True:
                 doc = ujson.dumps(doc, ensure_ascii=False)
-        except Exception:
+        except Exception as e:
             logger.exception('exc during push')
             raise e
         self.buffer[table] += doc + '\n'
@@ -142,21 +165,35 @@ class ClickHouse:
             self.flush(table)
 
     def ch_insert(self, table, body):
-        conn = self.__get_conn()
         sql_query = f'INSERT INTO {table} FORMAT JSONEachRow'
         self.__make_query(sql_query, body=body.encode())
 
     def post_raw(self, table, data):
-        conn = self.__get_conn()
         sql_query = f'INSERT INTO {table} FORMAT JSONEachRow'
         self.__make_query(sql_query, body=data)
 
-    def select(self, sql_query):
-        return self.__make_query(sql_query).read()
+    def select(self, sql_query, decode=True):
+        data = self.__make_query(sql_query).read()
+        return data.decode() if decode else data
 
     def select_stream(self, sql_query):
         response = self.__make_query(sql_query)
         return HTTPResp(response)
 
+    def lines_stream(self, sql_query):
+        response = self.__make_query(sql_query)
+        for line in HTTPResp(response).iter_lines():
+            yield line
+
+    def objects_stream(self, sql_query):
+        response = self.__make_query(sql_query + FORMAT_EACHROW)
+        for line in HTTPResp(response).iter_lines():
+            if line:
+                yield ujson.loads(line)
+
     def run(self, sql_query):
         return self.__make_query(sql_query, method='POST').read()
+
+    @staticmethod
+    def set_debug(level=logging.DEBUG):
+        logger.setLevel(level)
