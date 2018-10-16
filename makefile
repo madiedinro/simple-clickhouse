@@ -10,6 +10,8 @@ clean-build:
 	rm -rf *.egg-info
 
 sdist-upload:
-	python setup.py sdist upload
+	python setup.py sdist
+	twine upload dist/*
+
 
 upload: clean-build sdist-upload clean-build clean-pyc
