@@ -3,14 +3,11 @@
 Very simple library for interract with ClickHouse. Internally it operate JSON documents.
 For performance reasons used low-level `http.client.HTTPConnection` and `ujson` dumper/parser.
 
-
-
 ## Установка
 
 ```s
 $ pip install simplech
 ```
-
 
 ## Быстрый старт
 
@@ -35,7 +32,6 @@ ch.push('my_table', {'name': 'hux', 'num': 1})
 
 ch.flush_all()
 
-
 ```	
 
 ## Параметры
@@ -50,7 +46,7 @@ ch.flush_all()
 - **dsn:** [default: `""`] Использовать DSN для подключения (пример: `http://default@127.0.0.1:8123/stats`)
 - **debug:** [default: `False`] Включение логов в режим отладки
 - **buffer_limit:** [default: `1000`] Буффер записи на таблицу. При достижении будет произведена запись в БД
-- **loop:** [default: `None`] При необходимости указать конкретный loop
+- **loop:** [default: `None`] При необходимости указать конкретный loop (для асинхронной версии)
 
 Есть переменные окружения `CH_DSN`, `CLICKHOUSE_DSN`, при наличии которых, их значение будет использовано в качестве DSN.
 
@@ -63,6 +59,7 @@ ch.flush_all()
 
 ```python
 >>> from simplech import AsyncClickHouse
+>>> ch = AsyncClickHouse(host='localhost', user='default')
 >>> print(await ch.select('SHOW DATABASES'))
 
 default
@@ -88,7 +85,6 @@ system
 }
 #...
 ```
-
 
 ### Выполнение SQL операций
 
@@ -132,8 +128,9 @@ system
 ### Выполнение запроса и чтение всего результата сразу
 
 ```python
->>> t = ch.select('SHOW DATABASES')
->>> print(t)
+>>> from simplech import ClickHouse
+>>> ch = ClickHouse(host='localhost', user='default')
+>>> print(ch.select('SHOW DATABASES'))
 
 default
 system
@@ -195,12 +192,6 @@ b''
 >>> ch.push('other_table', my_other_obj)
 >>> ch.flush_all()
 ```
-
-### Оптимизация
-
-Операции с json в python не такие быстрые, стоит использовать альтернативную библиотеку, например
-
-	import ujson as json
 
 ### License
 
