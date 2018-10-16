@@ -1,4 +1,5 @@
 from setuptools import setup, find_packages
+from pathlib import Path
 
 setup(
     name='simplech',
@@ -7,8 +8,7 @@ setup(
     author_email='madiedinro@gmail.com',
     license='MIT',
     description='Simple ClickHouse client that uses json as main format',
-    long_description="""
-    """,
+    long_description=Path('README.md').read_text(),
     packages=find_packages(exclude=['contrib', 'docs', 'tests']),
     url='https://github.com/madiedinro/simple-clickhouse',
     include_package_data=True,

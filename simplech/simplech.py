@@ -1,19 +1,13 @@
 from collections import defaultdict
 from time import time
 import logging
-import sys
 import os
 import http.client
 import urllib.parse
-import random
-import sys
 import ujson
-from pprint import pprint
-
 import asyncio
 import aiohttp
 
-ITER_CHUNK_SIZE = 512
 LOGGER_FORMAT = '%(asctime)s %(levelname)s %(message)s'
 FORMAT_JSONEACHROW = ' FORMAT JSONEachRow'
 
