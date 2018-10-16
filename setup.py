@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='simplech',
-    version='0.2.0',
+    version='0.3.0',
     author='Dmitry Rodin',
     author_email='madiedinro@gmail.com',
     license='MIT',
