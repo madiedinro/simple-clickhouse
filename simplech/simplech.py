@@ -1,3 +1,6 @@
+
+
+
 from collections import defaultdict
 from time import time
 import logging
@@ -39,16 +42,33 @@ decoders = {
 
 
 class BaseClickHouse():
+    """
+    This module implements the ...
 
+    # Arguments
+
+    host: (str, None) Хост с clickhouse. Default to `127.0.0.1`.
+    port: (int, None) Порт подключения. Default to `8123`.
+    db: (str, None) Название базы данных. Default to `default`.
+    user: (str, None) Имя пользователя. Default to `default`.
+    password: (str, None) Пароль. Default to `""`.
+    session: (bool) Использовать сессию. Идентификатор сессии генерируется автоматически. Default to `False`.
+    session_id: (str, None) Идентификатор сессии взамен автоматически сгенериованного. Default to `None`.
+    dsn: (str, None) Использовать для подключения DSN, например: `http://default@127.0.0.1:8123/stats`. Default to `None`. 
+        При наличии переменной окружеения `CH_DSN` или `CLICKHOUSE_DSN` будет использовано ее значение.
+    debug: (bool) Переключение логов в режим отладки. Default to `False`.
+    buffer_limit: (int) Буффер записи на таблицу. При достижении будет произведена запись в БД. Default to `1000`.
+    loop: (EventLoop, None) При необходимости указать конкретный loop (для асинхронной версии). Default to `None`.
+    """
     def __init__(self,
                  host=None,
                  port=None,
                  db=None,
                  user=None,
-                 password="",
+                 password=None,
                  session=False,
-                 session_id="",
-                 dsn="",
+                 session_id=None,
+                 dsn=None,
                  debug=False,
                  loop=None,
                  buffer_size=1000):
@@ -84,14 +104,11 @@ class BaseClickHouse():
         self.base_url = f"{self.host}:{self.port}"
         self.buffer = defaultdict(str)
         self.buffer_i = defaultdict(int)
-        self.session_id = session_id
         self.buffer_size = buffer_size
         self.timeout = 10
         self.flush_every = 5
         self.loop = loop
-
-        if session:
-            self.session_id = session or str(time())
+        self.session_id = session_id or str(time())
 
         # init loop and others
         self._init()
@@ -143,6 +160,9 @@ class AsyncClickHouse(BaseClickHouse):
             self.loop = asyncio.get_event_loop()
 
     def flush(self, table):
+        """
+        Flush buffer of table
+        """
         asyncio.ensure_future(self._do_flush(table))
 
     async def _do_flush(self, table):
@@ -156,6 +176,9 @@ class AsyncClickHouse(BaseClickHouse):
         return resp_data
 
     async def run(self, sql_query, data=None, decoder=bytes_decoder):
+        """
+        Executes SQL code
+        """
         async with aiohttp.ClientSession() as session:
             async with self._make_request(sql_query, session, body=data, method='POST') as response:
                 return decoder(await response.read())
@@ -190,6 +213,7 @@ class AsyncClickHouse(BaseClickHouse):
 
 
 class ClickHouse(BaseClickHouse):
+
     def flush_all(self):
         for k in self.buffer:
             self.flush(k)
