@@ -13,6 +13,8 @@ import aiohttp
 
 LOGGER_FORMAT = '%(asctime)s %(levelname)s %(message)s'
 FORMAT_JSONEACHROW = ' FORMAT JSONEachRow'
+FORMAT = 'FORMAT'
+JSONEACHROW = 'JSONEachRow'
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.WARN)
@@ -21,6 +23,8 @@ log_handler = logging.StreamHandler()
 log_handler.setFormatter(log_formatter)
 logger.addHandler(log_handler)
 
+def format_format(val):
+    return ' ' + FORMAT + ' ' + val if val else ''
 
 def none_decoder(val):
     return val
@@ -188,9 +192,9 @@ class AsyncClickHouse(BaseClickHouse):
             async with self._make_request(sql_query, session) as response:
                 return decoder(await response.read())
 
-    async def objects_stream(self, sql_query, decoder=json_decoder):
+    async def objects_stream(self, sql_query, decoder=json_decoder, format=JSONEACHROW):
         async with aiohttp.ClientSession() as session:
-            async with self._make_request(sql_query + FORMAT_JSONEACHROW, session) as response:
+            async with self._make_request(sql_query + format_format(format), session) as response:
                 async for line in response.content:
                     if line:
                         yield decoder(line)
@@ -236,8 +240,8 @@ class ClickHouse(BaseClickHouse):
         response = self._make_request(sql_query)
         return decoder(response.read())
 
-    def objects_stream(self, sql_query, decoder=json_decoder):
-        response = self._make_request(sql_query + FORMAT_JSONEACHROW)
+    def objects_stream(self, sql_query, decoder=json_decoder, format=JSONEACHROW):
+        response = self._make_request(sql_query + format_format(format))
         while True:
             line = response.readline()
             if line:
