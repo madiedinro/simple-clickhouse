@@ -15,3 +15,11 @@ sdist-upload:
 
 
 upload: clean-build sdist-upload clean-build clean-pyc
+
+
+bump-patch:
+	bumpversion patch
+
+bump-minor:
+	bumpversion minor
+
