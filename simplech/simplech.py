@@ -147,7 +147,7 @@ class BaseClickHouse():
         except Exception as e:
             logger.exception('exc during push')
             raise e
-        self.buffer[table] += doc + '\n'
+        self.buffer[table] += (doc + '\n').encode('utf-8')
         self.buffer_i[table] += 1
         if self.buffer_i[table] % self.buffer_size == 0:
             self.flush(table)
