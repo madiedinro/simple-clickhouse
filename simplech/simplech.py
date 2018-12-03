@@ -147,7 +147,7 @@ class BaseClickHouse():
         except Exception as e:
             logger.exception('exc during push')
             raise e
-        self.buffer[table] += (doc + '\n').encode('utf-8')
+        self.buffer[table] += (doc + '\n')
         self.buffer_i[table] += 1
         if self.buffer_i[table] % self.buffer_size == 0:
             self.flush(table)
@@ -174,7 +174,7 @@ class AsyncClickHouse(BaseClickHouse):
         Flushing buffer to DB
         """
         sql_query = f'INSERT INTO {table} FORMAT JSONEachRow'
-        buff = self.buffer[table].encode()
+        buff = self.buffer[table].encode('utf-8')
         self.buffer[table] = ''
         resp_data = await self.run(sql_query, data=buff)
         return resp_data
@@ -259,7 +259,7 @@ class ClickHouse(BaseClickHouse):
         logger.debug('Query string: %s', query_str)
         if not method:
             method = 'POST' if body else 'GET'
-        conn.request(method, f"/?{query_str}", body=body)
+        conn.request(method, f"/?{query_str}", body=body.encode('utf-8'))
         response = conn.getresponse()
         if response.status != 200:
             content = response.read()
