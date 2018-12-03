@@ -174,7 +174,7 @@ class AsyncClickHouse(BaseClickHouse):
         Flushing buffer to DB
         """
         sql_query = f'INSERT INTO {table} FORMAT JSONEachRow'
-        buff = self.buffer[table].encode('utf-8')
+        buff = self.buffer[table].encode()
         self.buffer[table] = ''
         resp_data = await self.run(sql_query, data=buff)
         return resp_data
@@ -255,7 +255,7 @@ class ClickHouse(BaseClickHouse):
         if logger.level == logging.DEBUG:
             conn.set_debuglevel(logger.level)
 
-        query_str = urllib.parse.urlencode(self._build_params(sql_query))
+        query_str = urllib.parse.urlencode(self._build_params(sql_query), encoding='utf-8')
         logger.debug('Query string: %s', query_str)
         if not method:
             method = 'POST' if body else 'GET'
