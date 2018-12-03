@@ -174,7 +174,7 @@ class AsyncClickHouse(BaseClickHouse):
         Flushing buffer to DB
         """
         sql_query = f'INSERT INTO {table} FORMAT JSONEachRow'
-        buff = self.buffer[table].encode()
+        buff = self.buffer[table].encode('utf-8')
         self.buffer[table] = ''
         resp_data = await self.run(sql_query, data=buff)
         return resp_data
