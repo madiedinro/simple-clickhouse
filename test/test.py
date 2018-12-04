@@ -16,14 +16,15 @@ async def main():
         debug=test_debug, host=test_host, user=test_user, db=test_db)
 
     # run
-    await ch.run('CREATE TABLE IF NOT EXISTS libtest (id UInt64, date Date) ENGINE = Log')
-    await ch.run("INSERT INTO libtest (id, date) VALUES (1, '2018-06-01'), (7, '2018-06-03')")
+    await ch.run('DROP TABLE IF EXISTS libtest')
+    await ch.run('CREATE TABLE IF NOT EXISTS libtest (id UInt64, date Date, descr String) ENGINE = Log')
+    await ch.run("INSERT INTO libtest (id, date, descr) VALUES (1, '2018-06-01', 'jhdsbfhjds'), (7, '2018-06-03', 'Русский язык')")
     print(await ch.select('SELECT * FROM libtest'))
 
     ch.push('libtest', {'id': 8, 'date': '2019-09-01'})
     ch.push('libtest', {'id': 10, 'date': '2019-09-03'})
     ch.flush('libtest')
-    ch.push('libtest', {'id': 11, 'date': '2019-09-09'})
+    ch.push('libtest', {'id': 11, 'date': '2019-09-09', 'descr': 'ола-ла'})
     ch.flush_all()
 
     await asyncio.sleep(1)
@@ -40,12 +41,13 @@ def sync_test():
     ch = ClickHouse(
         debug=test_debug, host=test_host, user=test_user, db=test_db)
 
-    ch.run('CREATE TABLE IF NOT EXISTS libtest (id UInt64, date Date) ENGINE = Log')
-    ch.run("INSERT INTO libtest (id, date) VALUES (1, '2018-06-01'), (7, '2018-06-03')")
+    ch.run('DROP TABLE IF EXISTS libtest')
+    ch.run('CREATE TABLE IF NOT EXISTS libtest (id UInt64, date Date, descr String) ENGINE = Log')
+    ch.run("INSERT INTO libtest (id, date, descr) VALUES (1, '2018-06-01', 'descr'), (7, '2018-06-03', 'дескр')")
     print(ch.select('SELECT * FROM libtest'))
 
     ch.push('libtest', {'id': 8, 'date': '2019-09-01'})
-    ch.push('libtest', {'id': 10, 'date': '2019-09-03'})
+    ch.push('libtest', {'id': 10, 'date': '2019-09-03', 'descr': 'лалалала'})
     ch.flush('libtest')
     ch.push('libtest', {'id': 11, 'date': '2019-09-09'})
     ch.flush_all()

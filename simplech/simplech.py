@@ -259,7 +259,9 @@ class ClickHouse(BaseClickHouse):
         logger.debug('Query string: %s', query_str)
         if not method:
             method = 'POST' if body else 'GET'
-        conn.request(method, f"/?{query_str}", body=body.encode('utf-8'))
+        if body:
+            body = body.encode('utf-8')
+        conn.request(method, f"/?{query_str}", body=body)
         response = conn.getresponse()
         if response.status != 200:
             content = response.read()
