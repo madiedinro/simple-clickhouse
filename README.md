@@ -1,11 +1,20 @@
 # Simple ClickHouse lib
 
-Very simple library to interract with ClickHouse.
+Very simple ClickHouse client that simplify you interration with DBMS by using dicts as payload.
+It contains two versions: synchronous for reguar usage and asynchronous for use with `asyncio`. Sync version internally uses low-level python http client. Both are use high-performance json serializer/parser `ujson`.
 
-## Установка
+## Installation
+
+Install using `pip` from pypi repository
 
 ```bash
-$ pip install simplech
+pip install -U simplech
+```
+
+Or latest version from git 
+
+```
+pip install -U git+https://github.com/madiedinro/simple-clickhouse.git
 ```
 
 ## Использование
