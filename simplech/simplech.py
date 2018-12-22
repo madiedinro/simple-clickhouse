@@ -190,19 +190,29 @@ class AsyncClickHouse(BaseClickHouse):
         """
         async with aiohttp.ClientSession() as session:
             async with self._make_request(sql_query, session, body=data, method='POST') as response:
-                return decoder(await response.read())
+                if response.status == 200:
+                    return decoder(await response.read())
+                else:
+                    logger.error('wrong http code', code=response.code, text=response.text())
 
     async def select(self, sql_query, decoder=bytes_decoder):
         async with aiohttp.ClientSession() as session:
             async with self._make_request(sql_query, session) as response:
-                return decoder(await response.read())
+                if response.status == 200:
+                    return decoder(await response.read())
+                else:
+                    logger.error('wrong http code', code=response.code, text=response.text())
 
     async def objects_stream(self, sql_query, decoder=json_decoder, format=JSONEACHROW):
         async with aiohttp.ClientSession() as session:
             async with self._make_request(sql_query + format_format(format), session) as response:
-                async for line in response.content:
-                    if line:
-                        yield decoder(line)
+                if response.status == 200:
+                    async for line in response.content:
+                        if line:
+                            yield decoder(line)
+                else:
+                    logger.error('wrong http code', code=response.code, text=response.text())
+
 
     def _make_request(self,
                       sql_query,
