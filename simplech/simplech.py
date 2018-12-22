@@ -208,10 +208,10 @@ class AsyncClickHouse(BaseClickHouse):
                       method=None):
         if not method:
             method = 'post' if body else 'get'
-        func = getattr(session, method.lower())
         logger.debug(
             f"Making query to {self.base_url} with %s. timeout:{self.timeout}", self._build_params(sql_query))
-        return func(
+        return session.request(
+            method,
             self.scheme + '://' + self.base_url,
             timeout=self.timeout,
             params=self._build_params(sql_query),
