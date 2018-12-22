@@ -173,13 +173,16 @@ class AsyncClickHouse(BaseClickHouse):
         """
         Flushing buffer to DB
         """
-        sql_query = f'INSERT INTO {table} FORMAT JSONEachRow'
-        if self.buffer_i[table] > 0:
-            buff = self.buffer[table].encode('utf-8')
-            self.buffer[table] = ''
-            self.buffer_i[table] = 0
-            resp_data = await self.run(sql_query, data=buff)
-            return resp_data
+        try:
+            sql_query = f'INSERT INTO {table} FORMAT JSONEachRow'
+            if self.buffer_i[table] > 0:
+                buff = self.buffer[table].encode('utf-8')
+                self.buffer[table] = ''
+                self.buffer_i[table] = 0
+                resp_data = await self.run(sql_query, data=buff)
+                return resp_data
+        except Exception:
+            logger.exception('ch ex')
 
     async def run(self, sql_query, data=None, decoder=bytes_decoder):
         """
