@@ -131,8 +131,9 @@ class BaseClickHouse():
         return params
 
     def flush_all(self):
-        for k in self.buffer:
-            self.flush(k)
+        for k, v in self.buffer_i.items():
+            if v > 0:
+                self.flush(k)
 
     def flush(self, table):
         pass
@@ -162,12 +163,19 @@ class AsyncClickHouse(BaseClickHouse):
     def _init(self):
         if not self.loop:
             self.loop = asyncio.get_event_loop()
+        asyncio.ensure_future(self._timer(), loop=self.loop)
 
     def flush(self, table):
         """
         Flush buffer of table
         """
         asyncio.ensure_future(self._do_flush(table))
+
+    async def _timer(self):
+        while True:
+            await asyncio.sleep(self.flush_every)
+            self.flush_all()
+
 
     async def _do_flush(self, table):
         """
