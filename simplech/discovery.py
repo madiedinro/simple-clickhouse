@@ -7,7 +7,7 @@ from collections import defaultdict
 from typing import List, Dict, Mapping
 
 
-float_re = re.compile(r'^\d+\.\d+$')
+float_re = re.compile(r'^\d+\.\d{1,8}$')
 numeric_re = re.compile(r'^(\d+\.)?[\d]+$')
 date_re = re.compile(r'^\d{1,4}[\-\.\/]\d{1,2}[\-\.\/]\d{1,4}')
 datetime_re = re.compile(r'\d{1,4}[\-\.\/]\d{1,2}[\-\.\/]\d{1,4}[T\s]\d{1,2}:\d{1,3}:\d{1,2}')
