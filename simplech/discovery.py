@@ -85,15 +85,19 @@ def final_choose(v_set):
 
 
 class DeltaRunner:
-    def __init__(self, **kwargs):
+    def __init__(self, ch, discovery, **kwargs):
         self.kwargs = kwargs
+        self.ch = ch
+        self.disco = discovery
 
     def __enter__(self):
-        self.gen = DeltaGenerator(**self.kwargs)
+        self.gen = DeltaGenerator(ch=self.ch, discovery=self.disco, **self.kwargs)
         return self.gen
 
-    def __exit__(self, exception_type, exception_value, traceback):
-        pass
+    def __exit__(self, exc_type, exc_value, traceback):
+        if not exc_value:
+            self.ch.flush(self.disco.table)
+
 
 
 class TableDescription(BaseModel):
