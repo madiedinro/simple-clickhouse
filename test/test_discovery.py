@@ -4,7 +4,7 @@ import os
 import pytest
 from time import sleep
 from itertools import count
-from simplech import TableDiscovery, ClickHouse
+from simplech import TableDiscovery, ClickHouse, DeltaGenerator
 import datetime
 
 
@@ -85,6 +85,30 @@ def test_simplech_wrapping():
 
     assert td.tc.idx == ['ga_dimension2', 'date']
     assert 'ga_stat' == td.table
+
+
+
+def test_context_manager():
+
+    ch = ClickHouse()
+    td = ch.discovery(set1, 'ga_stat')
+    apply_params(td)
+
+    d1 = '2019-01-10'
+    d2 = '2019-01-13'
+
+    with td.difference(d1, d2) as delta:
+
+        assert type(delta) == DeltaGenerator
+        assert delta.d1 == d1
+        assert delta.d2 == d2
+        assert delta.disco == td
+        assert td.ch == delta.ch
+        # for row in delta.run(set2):
+            # print(row)
+    assert td.tc.idx == ['ga_dimension2', 'date']
+    assert 'ga_stat' == td.table
+
 
 
 if __name__ == '__main__':

@@ -6,27 +6,35 @@ import datetime
 from collections import defaultdict
 from typing import List, Dict, Mapping, Set, Callable, Any
 from pydantic import BaseModel
+from .deltagen import DeltaGenerator
 
 
 float_re = re.compile(r'^\d+\.\d{1,8}$')
 numeric_re = re.compile(r'^(\d+\.)?[\d]+$')
 date_re = re.compile(r'^\d{1,4}[\-\.\/]\d{1,2}[\-\.\/]\d{1,4}')
-datetime_re = re.compile(r'\d{1,4}[\-\.\/]\d{1,2}[\-\.\/]\d{1,4}[T\s]\d{1,2}:\d{1,3}:\d{1,2}')
+datetime_re = re.compile(
+    r'\d{1,4}[\-\.\/]\d{1,2}[\-\.\/]\d{1,4}[T\s]\d{1,2}:\d{1,3}:\d{1,2}')
+
 
 def is_date(v):
     return isinstance(v, datetime.date) or v == datetime.date
 
+
 def isfloat_re(v):
     return bool(float_re.match(v))
+
 
 def isnumeric_re(v):
     return bool(numeric_re.match(v))
 
+
 def isdate_dirty_re(v):
     return bool(date_re.match(v))
 
+
 def isdatetime_dirty_re(v):
     return bool(datetime_re.match(v))
+
 
 def handle_string(v):
     if isdate_dirty_re(v):
@@ -46,6 +54,7 @@ def handle_string(v):
             return float
     return str
 
+
 weight = {
     str: 99,
     datetime.datetime: 88,
@@ -64,6 +73,7 @@ type_map.update({
     datetime.datetime: 'DateTime'
 })
 
+
 def final_choose(v_set):
     lst = list(v_set)
     if len(lst) == 0:
@@ -72,6 +82,18 @@ def final_choose(v_set):
         return lst[0]
     else:
         return lst.index(max(lst))
+
+
+class DeltaRunner:
+    def __init__(self, **kwargs):
+        self.kwargs = kwargs
+
+    def __enter__(self):
+        self.gen = DeltaGenerator(**self.kwargs)
+        return self.gen
+
+    def __exit__(self, exception_type, exception_value, traceback):
+        pass
 
 
 class TableDescription(BaseModel):
@@ -94,12 +116,12 @@ class TableDiscovery:
 
         if not isinstance(records, list):
             records = [records]
-        
+
         self.tc = TableDescription()
         self.ch = ch
         self.tc.table = table
         self.analize(records, **kwargs)
-    
+
     @property
     def date_field(self):
         return self.tc.date_field
@@ -111,7 +133,8 @@ class TableDiscovery:
     def analize(self, records, analyze_strings=True, limit=500):
         for i, d in enumerate(records):
             if not isinstance(d, dict):
-                raise TypeError(f'Wrong data type. Expected dict, but given {type(d)}')
+                raise TypeError(
+                    f'Wrong data type. Expected dict, but given {type(d)}')
             for k, v in d.items():
                 t = type(v)
                 if analyze_strings and t == str:
@@ -121,16 +144,19 @@ class TableDiscovery:
             if i == limit:
                 break
 
+    def difference(self, d1, d2, dimensions_criteria=None):
+        return DeltaRunner(discovery=self, ch=self.ch, d1=d1, d2=d2, dimensions_criteria=dimensions_criteria)
+
     def date(self, *args):
         for k in args:
             self.set(k, datetime.date)
         return self
-    
+
     def float(self, *args):
         for k in args:
             self.set(k, float)
         return self
-    
+
     def int(self, *args):
         for k in args:
             self.set(k, int)
@@ -160,56 +186,58 @@ class TableDiscovery:
             self.tc.metrics.update(args)
             self.tc.dimensions = set(self.tc.cols.keys()) - self.tc.metrics
         return self
-    
+
     def set(self, *args, set_main=False, **kwargs):
         """
         Possible to user classes int, str, float and values 1, 'val', 1.0
         For date can set is main
         """
-        
+
         from_args = dict(zip(args[::2], args[1::2]))
         kwargs.update(from_args)
 
-        for key, type_py in kwargs.items():            
+        for key, type_py in kwargs.items():
             if key not in self.tc.cols:
                 raise KeyError(f'Key {key} not found')
             if not inspect.isclass(type_py):
                 type_py = type(type_py)
-            self.tc.cols[key] = set([type_py])        
+            self.tc.cols[key] = set([type_py])
             if is_date(type_py):
                 if not self.tc.date_field or set_main:
                     self.tc.date_field = key
         return self
-    
+
     @property
     def config(self):
         return self.tc
-    
+
     def __repr__(self):
         return "<Instance of {} class, value={}>".format(self.__class__.__name__, self.config)
 
     def __str__(self):
         return self.merge_tree()
-    
+
     def drop(self, execute=False):
         query = f'DROP TABLE IF EXISTS `{self.table}`\n'
         if execute == True:
             return self.ch.run(query)
         return query
 
-
     def get_metrics_funcs(self):
         return {k: final_choose(self.tc.cols[k]) for k in self.get_metrics()}
-    
+
+    def cols(self):
+        return list(self.tc.cols.keys())
+
     def final_cols(self):
         return {k: final_choose(t) for k, t in self.tc.cols.items()}
 
     def merge_tree(self, execute=False):
         idx = ', '.join([f'`{f}`' for f in self.tc.idx or []])
         query = f'CREATE TABLE IF NOT EXISTS `{self.table}` (\n'
-        query += ",\n".join([f'  `{f}`  {type_map[t]}' for f, t in self.final_cols().items()]) + '\n'
-        query += f') ENGINE MergeTree() PARTITION BY toYYYYMM(`{self.tc.date_field}`) ORDER BY ({idx}) SETTINGS index_granularity={self.tc.index_granularity}\n' 
+        query += ",\n".join([f'  `{f}`  {type_map[t]}' for f,
+                             t in self.final_cols().items()]) + '\n'
+        query += f') ENGINE MergeTree() PARTITION BY toYYYYMM(`{self.tc.date_field}`) ORDER BY ({idx}) SETTINGS index_granularity={self.tc.index_granularity}\n'
         if execute == True:
             return self.ch.run(query)
         return query
-        
