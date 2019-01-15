@@ -85,7 +85,7 @@ class TableDescription(BaseModel):
 
 
 class TableDiscovery:
-    def __init__(self, records, table, **kwargs):
+    def __init__(self, records, table, ch=None, **kwargs):
         """
         arguments:
         records - one record (dict) or list of records (list[dict])
@@ -96,9 +96,18 @@ class TableDiscovery:
             records = [records]
         
         self.tc = TableDescription()
+        self.ch = ch
         self.tc.table = table
         self.analize(records, **kwargs)
-        
+    
+    @property
+    def date_field(self):
+        return self.tc.date_field
+
+    @property
+    def table(self):
+        return self.tc.table
+
     def analize(self, records, analyze_strings=True, limit=500):
         for i, d in enumerate(records):
             if not isinstance(d, dict):
@@ -133,6 +142,16 @@ class TableDiscovery:
                 raise KeyError(f'Key {f} not found')
         self.tc.idx = list(args)
         return self
+
+    def get_dimensions(self):
+        if len(self.tc.dimensions):
+            return list(self.tc.dimensions)
+        raise ValueError('Dimensions not yet defined')
+
+    def get_metrics(self):
+        if len(self.tc.metrics):
+            return list(self.tc.metrics)
+        raise ValueError('Metrics not yet defined')
 
     def metrics(self, *args):
         for f in args:
@@ -172,16 +191,22 @@ class TableDiscovery:
     def __str__(self):
         return self.merge_tree()
     
-    def drop(self):
-        return f'DROP TABLE IF EXISTS `{self.tc.table}`\n'
+    def drop(self, execute=False):
+        query = f'DROP TABLE IF EXISTS `{self.tc.table}`\n'
+        if execute == True:
+            return self.ch.run(query)
+        return query
+
     
     def final_cols(self):
         return {k: final_choose(t) for k, t in self.tc.cols.items()}
 
-    def merge_tree(self, drop=False):
+    def merge_tree(self, execute=False):
         idx = ', '.join([f'`{f}`' for f in self.tc.idx or []])
-        sql = f'CREATE TABLE IF NOT EXISTS `{self.tc.table}` (\n'
-        sql += ",\n".join([f'  `{f}`  {type_map[t]}' for f, t in self.final_cols().items()]) + '\n'
-        sql += f') ENGINE MergeTree() PARTITION BY toYYYYMM(`{self.tc.date_field}`) ORDER BY ({idx}) SETTINGS index_granularity={self.tc.index_granularity}\n' 
-        return sql
+        query = f'CREATE TABLE IF NOT EXISTS `{self.tc.table}` (\n'
+        query += ",\n".join([f'  `{f}`  {type_map[t]}' for f, t in self.final_cols().items()]) + '\n'
+        query += f') ENGINE MergeTree() PARTITION BY toYYYYMM(`{self.tc.date_field}`) ORDER BY ({idx}) SETTINGS index_granularity={self.tc.index_granularity}\n' 
+        if execute == True:
+            return self.ch.run(query)
+        return query
         

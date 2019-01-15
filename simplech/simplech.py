@@ -10,6 +10,7 @@ import urllib.parse
 import ujson
 import asyncio
 import aiohttp
+from . import TableDiscovery
 
 LOGGER_FORMAT = '%(asctime)s %(levelname)s %(message)s'
 FORMAT_JSONEACHROW = ' FORMAT JSONEachRow'
@@ -129,6 +130,9 @@ class BaseClickHouse():
         if self.password:
             params['password'] = self.password
         return params
+
+    def discovery(self, records, table):
+        return TableDiscovery(records, table, self)
 
     def flush_all(self):
         for k, v in self.buffer_i.items():

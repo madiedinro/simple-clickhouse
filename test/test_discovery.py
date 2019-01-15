@@ -37,9 +37,9 @@ def test_wrap_sync():
                                     'ga_sessions',
                                     'ga_timeOnPage',
                                     'ga_users')
-    td1c = td1.tc
-    assert td1c.idx == ['ga_dimension2', 'date']
-    assert td1c.date_field == 'date'
+    td1cfg = td1.tc
+    assert td1cfg.idx == ['ga_dimension2', 'date']
+    assert td1cfg.date_field == 'date'
     assert td1.final_cols() == {'date': datetime.date,
                                 'ga_channelGrouping': str,
                                 'ga_dateHourMinute': int,
@@ -58,7 +58,8 @@ def test_wrap_sync():
                                 'utm_medium': str,
                                 'utm_source': str,
                                 'utm_term': str}
-    assert 'utm_medium' in td1c.dimensions
+    assert 'utm_medium' in td1.get_dimensions()
+    assert 'ga_sessions' in td1.get_metrics()
     assert 'toYYYYMM' in td1.merge_tree()
     # assert  == [20, 1]
 if __name__ == '__main__':
