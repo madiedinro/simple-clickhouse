@@ -33,9 +33,10 @@ def apply_params(inst):
         'date').idx('ga_dimension2',
                     'date').metrics('ga_pageviews',
                                     'ga_newUsers',
-                                    'ga_sessions',
                                     'ga_timeOnPage',
+                                    'ga_sessions',
                                     'ga_users')
+
 
 def test_wrap_sync():
     td1 = TableDiscovery(set1, 'ga_stat')
@@ -43,18 +44,18 @@ def test_wrap_sync():
     assert td1.tc.idx == ['ga_dimension2', 'date']
     assert td1.tc.date_field == 'date'
     assert td1.final_cols() == {'date': datetime.date,
+                                'ga_sessionCount': int,
                                 'ga_channelGrouping': str,
                                 'ga_dateHourMinute': int,
                                 'ga_dimension2': str,
                                 'ga_fullReferrer': str,
                                 'ga_newUsers': int,
                                 'ga_pageviews': int,
-                                'ga_sessionCount': int,
                                 'ga_sessions': int,
-                                'ga_socialNetwork': str,
                                 'ga_timeOnPage': float,
                                 'ga_users': int,
                                 'profile_id': int,
+                                'ga_socialNetwork': str,
                                 'utm_campaign': str,
                                 'utm_content': str,
                                 'utm_medium': str,
@@ -65,6 +66,15 @@ def test_wrap_sync():
     assert 'ga_stat' == td1.table
     assert 'toYYYYMM' in td1.merge_tree()
     # assert  == [20, 1]
+
+    assert td1.get_metrics_funcs() == {
+        'ga_newUsers': int,
+        'ga_pageviews': int,
+        'ga_sessions': int,
+        'ga_timeOnPage': float,
+        'ga_users': int,
+
+    }
 
 
 def test_simplech_wrapping():
@@ -79,5 +89,3 @@ def test_simplech_wrapping():
 
 if __name__ == '__main__':
     test_wrap_sync()
-
-

@@ -199,9 +199,7 @@ class TableDiscovery:
 
 
     def get_metrics_funcs(self):
-        if len(self.tc.metrics):
-            return list(self.tc.metrics)
-        return {f: t for f, t in self.final_cols().items()}
+        return {k: final_choose(self.tc.cols[k]) for k in self.get_metrics()}
     
     def final_cols(self):
         return {k: final_choose(t) for k, t in self.tc.cols.items()}
