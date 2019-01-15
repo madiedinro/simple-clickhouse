@@ -3,7 +3,7 @@ from pathlib import Path
 
 setup(
     name='simplech',
-    version='0.5.2',
+    version='0.6.0',
     author='Dmitry Rodin',
     author_email='madiedinro@gmail.com',
     license='MIT',
