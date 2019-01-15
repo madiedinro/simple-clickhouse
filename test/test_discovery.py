@@ -4,7 +4,7 @@ import os
 import pytest
 from time import sleep
 from itertools import count
-from simplech import TableDiscovery
+from simplech import TableDiscovery, ClickHouse
 import datetime
 
 
@@ -28,18 +28,20 @@ set2 = [
 ]
 
 
-def test_wrap_sync():
-
-    td1 = TableDiscovery(set1, 'ga_stat').date(
+def apply_params(inst):
+    inst.date(
         'date').idx('ga_dimension2',
                     'date').metrics('ga_pageviews',
                                     'ga_newUsers',
                                     'ga_sessions',
                                     'ga_timeOnPage',
                                     'ga_users')
-    td1cfg = td1.tc
-    assert td1cfg.idx == ['ga_dimension2', 'date']
-    assert td1cfg.date_field == 'date'
+
+def test_wrap_sync():
+    td1 = TableDiscovery(set1, 'ga_stat')
+    apply_params(td1)
+    assert td1.tc.idx == ['ga_dimension2', 'date']
+    assert td1.tc.date_field == 'date'
     assert td1.final_cols() == {'date': datetime.date,
                                 'ga_channelGrouping': str,
                                 'ga_dateHourMinute': int,
@@ -60,7 +62,22 @@ def test_wrap_sync():
                                 'utm_term': str}
     assert 'utm_medium' in td1.get_dimensions()
     assert 'ga_sessions' in td1.get_metrics()
+    assert 'ga_stat' == td1.table
     assert 'toYYYYMM' in td1.merge_tree()
     # assert  == [20, 1]
+
+
+def test_simplech_wrapping():
+
+    ch = ClickHouse()
+    td = ch.discovery(set1, 'ga_stat')
+    apply_params(td)
+
+    assert td.tc.idx == ['ga_dimension2', 'date']
+    assert 'ga_stat' == td.table
+
+
 if __name__ == '__main__':
     test_wrap_sync()
+
+

@@ -192,7 +192,7 @@ class TableDiscovery:
         return self.merge_tree()
     
     def drop(self, execute=False):
-        query = f'DROP TABLE IF EXISTS `{self.tc.table}`\n'
+        query = f'DROP TABLE IF EXISTS `{self.table}`\n'
         if execute == True:
             return self.ch.run(query)
         return query
@@ -203,7 +203,7 @@ class TableDiscovery:
 
     def merge_tree(self, execute=False):
         idx = ', '.join([f'`{f}`' for f in self.tc.idx or []])
-        query = f'CREATE TABLE IF NOT EXISTS `{self.tc.table}` (\n'
+        query = f'CREATE TABLE IF NOT EXISTS `{self.table}` (\n'
         query += ",\n".join([f'  `{f}`  {type_map[t]}' for f, t in self.final_cols().items()]) + '\n'
         query += f') ENGINE MergeTree() PARTITION BY toYYYYMM(`{self.tc.date_field}`) ORDER BY ({idx}) SETTINGS index_granularity={self.tc.index_granularity}\n' 
         if execute == True:
