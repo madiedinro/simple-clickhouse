@@ -176,7 +176,6 @@ class AsyncClickHouse(BaseClickHouse):
             await asyncio.sleep(self.flush_every)
             self.flush_all()
 
-
     async def _do_flush(self, table):
         """
         Flushing buffer to DB
@@ -199,7 +198,9 @@ class AsyncClickHouse(BaseClickHouse):
         async with aiohttp.ClientSession() as session:
             async with self._make_request(sql_query, session, body=data, method='POST') as response:
                 if response.status == 200:
-                    return decoder(await response.read())
+                    result = decoder(await response.read())
+                    if result != '':
+                        return result
                 else:
                     logger.error('wrong http code %s %s', response.status, await response.text())
 
@@ -258,7 +259,12 @@ class ClickHouse(BaseClickHouse):
 
     def run(self, sql_query, data=None, decoder=bytes_decoder):
         response = self._make_request(sql_query, body=data, method='POST')
-        return decoder(response.read())
+        if response.code != 200:
+            return response
+        result = decoder(response.read())
+        if result != '':
+            return result
+        
 
     def select(self, sql_query, decoder=bytes_decoder):
         response = self._make_request(sql_query)

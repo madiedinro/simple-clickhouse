@@ -14,7 +14,7 @@ setup(
     url='https://github.com/madiedinro/simple-clickhouse',
     include_package_data=True,
     install_requires=[
-        'ujson>=1.35,<2', 'aiohttp>=3,<4'
+        'ujson>=1.35,<2', 'aiohttp>=3,<4', 'pydantic>=0.18'
     ],
     zip_safe=False,
     classifiers=[
