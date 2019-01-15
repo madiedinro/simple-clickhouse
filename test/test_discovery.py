@@ -5,6 +5,7 @@ import pytest
 from time import sleep
 from itertools import count
 from simplech import TableDiscovery, ClickHouse, DeltaGenerator
+from simplech.discovery import final_choose
 import datetime
 
 
@@ -110,6 +111,10 @@ def test_context_manager():
     assert 'ga_stat' == td.table
 
 
+def test_final_type():
+
+    assert final_choose(set([str, datetime.date])) == str
+    assert final_choose(set([datetime.date, int])) == datetime.date
 
 if __name__ == '__main__':
     test_wrap_sync()

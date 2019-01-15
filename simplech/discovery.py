@@ -16,6 +16,25 @@ datetime_re = re.compile(
     r'\d{1,4}[\-\.\/]\d{1,2}[\-\.\/]\d{1,4}[T\s]\d{1,2}:\d{1,3}:\d{1,2}')
 
 
+weight = {
+    str: 99,
+    datetime.datetime: 88,
+    datetime.date: 77,
+    float: 66,
+    int: 44,
+}
+
+
+type_map = defaultdict(lambda: 'Unknown')
+type_map.update({
+    str: 'String',
+    float: 'Float64',
+    int: 'UInt64',
+    datetime.date: 'Date',
+    datetime.datetime: 'DateTime'
+})
+
+
 def is_date(v):
     return isinstance(v, datetime.date) or v == datetime.date
 
@@ -55,25 +74,6 @@ def handle_string(v):
     return str
 
 
-weight = {
-    str: 99,
-    datetime.datetime: 88,
-    datetime.date: 77,
-    float: 66,
-    int: 44,
-}
-
-
-type_map = defaultdict(lambda: 'Unknown')
-type_map.update({
-    str: 'String',
-    float: 'Float64',
-    int: 'UInt64',
-    datetime.date: 'Date',
-    datetime.datetime: 'DateTime'
-})
-
-
 def final_choose(v_set):
     lst = list(v_set)
     if len(lst) == 0:
@@ -81,7 +81,9 @@ def final_choose(v_set):
     elif len(lst) == 1:
         return lst[0]
     else:
-        return lst.index(max(lst))
+        mapped = list(map(lambda x: weight[x], lst))
+        maxi = mapped.index(max(mapped))
+        return lst[maxi]
 
 
 class DeltaRunner:
