@@ -114,6 +114,7 @@ def test_context_manager():
 def test_final_type():
 
     assert final_choose(set([str, datetime.date])) == str
+    assert final_choose(set([datetime.date, str])) == str
     assert final_choose(set([datetime.date, int])) == datetime.date
 
 if __name__ == '__main__':

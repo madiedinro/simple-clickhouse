@@ -11,17 +11,17 @@ from .deltagen import DeltaGenerator
 
 float_re = re.compile(r'^\d+\.\d{1,8}$')
 numeric_re = re.compile(r'^(\d+\.)?[\d]+$')
-date_re = re.compile(r'^\d{1,4}[\-\.\/]\d{1,2}[\-\.\/]\d{1,4}')
+date_re = re.compile(r'^\d{2,4}[\-\.\/]\d{2,2}[\-\.\/]\d{2,4}')
 datetime_re = re.compile(
     r'\d{1,4}[\-\.\/]\d{1,2}[\-\.\/]\d{1,4}[T\s]\d{1,2}:\d{1,3}:\d{1,2}')
 
 
 weight = {
-    str: 99,
-    datetime.datetime: 88,
-    datetime.date: 77,
-    float: 66,
-    int: 44,
+    str.__name__: 99,
+    datetime.datetime.__name__: 88,
+    datetime.date.__name__: 77,
+    float.__name__: 66,
+    int.__name__: 44,
 }
 
 
@@ -81,7 +81,7 @@ def final_choose(v_set):
     elif len(lst) == 1:
         return lst[0]
     else:
-        mapped = list(map(lambda x: weight[x], lst))
+        mapped = list(map(lambda x: weight[x.__name__], lst))
         maxi = mapped.index(max(mapped))
         return lst[maxi]
 
