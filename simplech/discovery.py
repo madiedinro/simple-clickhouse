@@ -81,7 +81,7 @@ def final_choose(v_set):
     elif len(lst) == 1:
         return lst[0]
     else:
-        mapped = list(map(lambda x: weight[x.__name__], lst))
+        mapped = [weight[x.__name__] for x in lst]
         maxi = mapped.index(max(mapped))
         return lst[maxi]
 
