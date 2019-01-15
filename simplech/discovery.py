@@ -181,7 +181,7 @@ class TableDiscovery:
     def merge_tree(self, drop=False):
         idx = ', '.join([f'`{f}`' for f in self.tc.idx or []])
         sql = f'CREATE TABLE IF NOT EXISTS `{self.tc.table}` (\n'
-        sql += ",\n".join([f'  `{f}`  {type_map[t]}' for f, t in self.final_cols()]) + '\n'
+        sql += ",\n".join([f'  `{f}`  {type_map[t]}' for f, t in self.final_cols().items()]) + '\n'
         sql += f') ENGINE MergeTree() PARTITION BY toYYYYMM(`{self.tc.date_field}`) ORDER BY ({idx}) SETTINGS index_granularity={self.tc.index_granularity}\n' 
         return sql
         

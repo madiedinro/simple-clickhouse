@@ -59,6 +59,7 @@ def test_wrap_sync():
                                 'utm_source': str,
                                 'utm_term': str}
     assert 'utm_medium' in td1c.dimensions
+    assert 'toYYYYMM' in td1.merge_tree()
     # assert  == [20, 1]
 if __name__ == '__main__':
     test_wrap_sync()
