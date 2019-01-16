@@ -119,36 +119,38 @@ class TableDiscovery:
         records - one record (dict) or list of records (list[dict])
         limit - discover by only x records
         """
-
-        if not isinstance(records, list):
-            records = [records]
-
-        self.tc = TableDescription()
+        
         self.ch = ch
-        self.tc.table = table
-        self.analize(records, **kwargs)
+        self.table = table
+        self.tc = TableDescription()
+        
+        self.tc.cols = self.discover_by_data(records, **kwargs)
+        # By default all cols is dimensions
+        self.tc.dimensions = set(self.tc.cols.keys())
+
 
     @property
     def date_field(self):
         return self.tc.date_field
 
-    @property
-    def table(self):
-        return self.tc.table
-
-    def analize(self, records, analyze_strings=True, limit=500):
+    def discover_by_data(self, records, analyze_strings=True, limit=500):
+        if isinstance(records, dict):
+            records = dict.values()
+        
+        cols = dict()
         for i, d in enumerate(records):
             if not isinstance(d, dict):
                 raise TypeError(
-                    f'Wrong data type. Expected dict, but given {type(d)}')
+                    f'Wrong data type. Expected dict given {type(d)}')
             for k, v in d.items():
                 t = type(v)
                 if analyze_strings and t == str:
                     t = handle_string(v)
-                self.tc.cols[k] = self.tc.cols.get(k, set())
-                self.tc.cols[k].add(t)
+                cols[k] = cols.get(k, set())
+                cols[k].add(t)
             if i == limit:
                 break
+        return cols
 
     def push(self, row):
         return self.ch.push(self.table, row)
@@ -187,6 +189,14 @@ class TableDiscovery:
         if len(self.tc.metrics):
             return list(self.tc.metrics)
         raise ValueError('Metrics not yet defined')
+
+    def dimensions(self, *args):
+        for f in args:
+            if f not in self.tc.cols:
+                raise KeyError(f'Key {f} not found')
+            self.tc.dimensions.update(args)
+            self.tc.metrics = set(self.tc.cols.keys()) - self.tc.dimensions
+        return self
 
     def metrics(self, *args):
         for f in args:
@@ -238,10 +248,17 @@ class TableDiscovery:
     def cols(self):
         return list(self.tc.cols.keys())
 
+    @property
+    def columns(self):
+        return list(self.tc.cols.keys())
+
     def final_cols(self):
         return {k: final_choose(t) for k, t in self.tc.cols.items()}
 
     def merge_tree(self, execute=False):
+        """
+        Generate ClickHouse MergeTree create statement
+        """
         idx = ', '.join([f'`{f}`' for f in self.tc.idx or []])
         query = f'CREATE TABLE IF NOT EXISTS `{self.table}` (\n'
         query += ",\n".join([f'  `{f}`  {type_map[t]}' for f,

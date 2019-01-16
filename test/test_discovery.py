@@ -28,20 +28,25 @@ set2 = [
      'reach': 6, 'date': '2019-01-14', 'ad_id': '48602127', 'campaign_id': 1010819423, 'account_id': 1603421955},
 ]
 
+set3 = [
+    {'cid': '69296758.1544679970', 'date': '2019-01-09', 'date_time': '2019-01-10 08:00:22',
+        'id': '1795469', 'sale': '10000', 'uid': '6450101900745375744'},
+    {'cid': '69296758.1544679972', 'date': '2019-01-10', 'date_time': '2019-01-10 08:00:43',
+        'id': '1795469', 'sale': '70000', 'uid': '6450101900745375745'},
+    {'cid': '69296758.1544679973', 'date': '2019-01-11', 'date_time': '2019-01-10 08:00:43',
+        'id': '1795469', 'sale': '4000', 'uid': '6450101900745375746'},
+]
 
-def apply_params(inst):
-    inst.date(
+
+def test_wrap_sync():
+    td1 = TableDiscovery(set1, 'ga_stat')
+    td1.date(
         'date').idx('ga_dimension2',
                     'date').metrics('ga_pageviews',
                                     'ga_newUsers',
                                     'ga_timeOnPage',
                                     'ga_sessions',
                                     'ga_users')
-
-
-def test_wrap_sync():
-    td1 = TableDiscovery(set1, 'ga_stat')
-    apply_params(td1)
     assert td1.tc.idx == ['ga_dimension2', 'date']
     assert td1.tc.date_field == 'date'
     assert td1.final_cols() == {'date': datetime.date,
@@ -82,18 +87,34 @@ def test_simplech_wrapping():
 
     ch = ClickHouse()
     td = ch.discovery(set1, 'ga_stat')
-    apply_params(td)
-
+    td.date(
+        'date').idx('ga_dimension2',
+                    'date').metrics('ga_pageviews',
+                                    'ga_newUsers',
+                                    'ga_timeOnPage',
+                                    'ga_sessions',
+                                    'ga_users')
     assert td.tc.idx == ['ga_dimension2', 'date']
     assert 'ga_stat' == td.table
 
 
+def test_dimensions():
+
+    # 'date', 'cid', 'date_time', 'id', 'sale', 'uid'
+    ch = ClickHouse()
+    td = ch.discovery(set3, 'ga_stat').date('date').idx('date').metrics('sale')
+
+    assert td.tc.dimensions == {'cid', 'date_time', 'id', 'date', 'uid'}
+    
+
+    td = ch.discovery(set3, 'ga_stat').date('date').idx('date')
+
+    assert td.tc.dimensions == {'cid', 'date_time', 'id', 'date', 'uid', 'sale'}
 
 def test_context_manager():
 
     ch = ClickHouse()
-    td = ch.discovery(set1, 'ga_stat')
-    apply_params(td)
+    td = ch.discovery(set3, 'ga_stat').date('date').idx('date').metrics('sale')
 
     d1 = '2019-01-10'
     d2 = '2019-01-13'
@@ -106,8 +127,8 @@ def test_context_manager():
         assert delta.disco == td
         assert td.ch == delta.ch
         # for row in delta.run(set2):
-            # print(row)
-    assert td.tc.idx == ['ga_dimension2', 'date']
+        # print(row)
+    assert td.tc.idx == ['date']
     assert 'ga_stat' == td.table
 
 
@@ -116,6 +137,7 @@ def test_final_type():
     assert final_choose(set([str, datetime.date])) == str
     assert final_choose(set([datetime.date, str])) == str
     assert final_choose(set([datetime.date, int])) == datetime.date
+
 
 if __name__ == '__main__':
     test_wrap_sync()
