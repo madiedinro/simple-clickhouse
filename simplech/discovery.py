@@ -150,6 +150,9 @@ class TableDiscovery:
             if i == limit:
                 break
 
+    def push(self, row):
+        return self.ch.push(self.table, row)
+
     def difference(self, d1, d2, dimensions_criteria=None):
         return DeltaRunner(discovery=self, ch=self.ch, d1=d1, d2=d2, dimensions_criteria=dimensions_criteria)
 

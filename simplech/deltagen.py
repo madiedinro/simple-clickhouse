@@ -18,7 +18,10 @@ class DeltaGenerator:
         self.handled_keys = []
         self.recs_map = dict()
         self.dimensions_criteria = dimensions_criteria
-    
+
+    def push(self, row):
+        return self.ch.push(self.disco.table, row)
+
     def run(self, data):
         dims = self.disco.get_dimensions()
         metrics = self.disco.get_metrics()
@@ -28,7 +31,7 @@ class DeltaGenerator:
             for k in dims:
                 key += ':'+str(row[k]) 
             return key
-        
+
         def def_metric(m, row):
             return metricsf[m]() if row.get(m) == None else metricsf[m](row[m])
         
