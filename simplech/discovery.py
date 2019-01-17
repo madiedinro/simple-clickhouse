@@ -9,8 +9,8 @@ from pydantic import BaseModel
 from .deltagen import DeltaGenerator
 
 
-float_re = re.compile(r'^\d+\.\d{1,8}$')
-numeric_re = re.compile(r'^(\d+\.)?[\d]+$')
+float_re = re.compile(r'^\-?\d+\.\d{1,8}$')
+numeric_re = re.compile(r'^(\-?\d+\.)?\-?[\d]+$')
 date_re = re.compile(r'^\d{2,4}[\-\.\/]\d{2,2}[\-\.\/]\d{2,4}')
 datetime_re = re.compile(
     r'\d{1,4}[\-\.\/]\d{1,2}[\-\.\/]\d{1,4}[T\s]\d{1,2}:\d{1,3}:\d{1,2}')
@@ -67,7 +67,7 @@ def handle_string(v):
         except:
             pass
     if isnumeric_re(v):
-        if v.isdecimal():
+        if v.count('.') == 0:
             return int
         if isfloat_re(v):
             return float
@@ -85,6 +85,10 @@ def final_choose(v_set):
         maxi = mapped.index(max(mapped))
         return lst[maxi]
 
+class uint64:
+    """
+    Class for unsigned int64
+    """
 
 class DeltaRunner:
     def __init__(self, ch, discovery, **kwargs):
@@ -127,6 +131,9 @@ class TableDiscovery:
         self.tc.cols = self.discover_by_data(records, **kwargs)
         # By default all cols is dimensions
         self.tc.dimensions = set(self.tc.cols.keys())
+        self.stat = {
+            'push': 0
+        }
 
 
     @property
@@ -153,6 +160,7 @@ class TableDiscovery:
         return cols
 
     def push(self, row):
+        self.stat['push'] += 1
         return self.ch.push(self.table, row)
 
     def difference(self, d1, d2, dimensions_criteria=None):

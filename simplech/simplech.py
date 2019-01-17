@@ -38,12 +38,49 @@ def json_decoder(val):
 def bytes_decoder(val):
     return val.decode()
 
-
 decoders = {
     'none': none_decoder,
     'json': json_decoder,
     'bytes': bytes_decoder
 }
+
+
+
+# class HttpResponseMock:
+    
+#     def status()
+    
+
+class HttpClientMock:
+    status = 200
+    code = 200
+    length = 0
+    content = b''
+
+    def __init__(self, url):
+        self.url = url
+    
+    def request(self, *args, **kwargs):
+        pass
+
+    def getresponse(self):
+        return self
+
+    def read(self):
+        return self.content
+    
+    def set_debuglevel(self, level):
+        pass
+
+
+def http_mock_factory(url):
+    return HttpClientMock(url)
+
+
+def http_conn_factory(url):
+    return http.client.HTTPConnection(url)
+
+
 
 
 class BaseClickHouse():
@@ -246,6 +283,9 @@ class AsyncClickHouse(BaseClickHouse):
 
 class ClickHouse(BaseClickHouse):
 
+    def _init(self):
+        self.conn_factory = http_conn_factory
+
     def flush_all(self):
         for k in self.buffer:
             self.flush(k)
@@ -268,8 +308,7 @@ class ClickHouse(BaseClickHouse):
         result = decoder(response.read())
         if result != '':
             return result
-        
-
+    
     def select(self, sql_query, decoder=bytes_decoder):
         response = self._make_request(sql_query)
         return decoder(response.read())
@@ -282,10 +321,10 @@ class ClickHouse(BaseClickHouse):
                 yield decoder(line)
             else:
                 break
-
+    
     def _make_request(self, sql_query, body=None, method=None):
         logger.debug('Conn base url: %s', self.base_url)
-        conn = http.client.HTTPConnection(self.base_url)
+        conn = self.conn_factory(self.base_url)
         if logger.level == logging.DEBUG:
             conn.set_debuglevel(logger.level)
 
@@ -305,3 +344,4 @@ class ClickHouse(BaseClickHouse):
         logger.debug(
             f'Server response status: {response.status}, content-length: {response.length}')
         return response
+

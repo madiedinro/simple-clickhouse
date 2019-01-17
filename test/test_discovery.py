@@ -5,7 +5,8 @@ import pytest
 from time import sleep
 from itertools import count
 from simplech import TableDiscovery, ClickHouse, DeltaGenerator
-from simplech.discovery import final_choose
+from simplech.discovery import final_choose, handle_string
+from simplech.simplech import http_mock_factory
 import datetime
 
 
@@ -38,6 +39,30 @@ set3 = [
 ]
 
 
+def test_ch_run():
+
+    ch = ClickHouse()
+    ch.conn_factory = http_mock_factory
+    ch.run('SELECT')
+
+
+def test_string_detection():
+
+    assert handle_string('1.0') == float
+    assert handle_string('1,0') == str
+    assert handle_string('1') == int
+    assert handle_string('10000') == int
+    assert handle_string('0') == int
+    assert handle_string('-1') == int
+    assert handle_string('-10.0') == float
+    assert handle_string('-1.00001') == float
+    assert handle_string('-1.00001') == float
+    assert handle_string('dsfsdfsd') == str
+    assert handle_string('2018-12-22') == datetime.date
+    assert handle_string('2018-12-22 18:33:44') == datetime.datetime
+    assert handle_string('sdfsdf 2018-12-22 18:33:44') == str
+    
+
 def test_wrap_sync():
     td1 = TableDiscovery(set1, 'ga_stat')
     td1.date(
@@ -48,7 +73,9 @@ def test_wrap_sync():
                                     'ga_sessions',
                                     'ga_users')
     assert td1.tc.idx == ['ga_dimension2', 'date']
+    
     assert td1.tc.date_field == 'date'
+
     assert td1.final_cols() == {'date': datetime.date,
                                 'ga_sessionCount': int,
                                 'ga_channelGrouping': str,
