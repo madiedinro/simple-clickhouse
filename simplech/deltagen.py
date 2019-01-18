@@ -29,7 +29,7 @@ class DeltaGenerator:
         def dim_key(row):
             key = ''
             for k in dims:
-                key += ':'+str(row[k]) 
+                key += ':'+str(row.get(k)) 
             return key
 
         def def_metric(m, row):
