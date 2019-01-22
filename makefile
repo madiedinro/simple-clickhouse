@@ -1,7 +1,6 @@
 clean-pyc:
-	find . -name '*.pyc' -exec rm --force {} +
-	find . -name '*.pyo' -exec rm --force {} +
-	find . -name '*~' -exec rm --force  {} +
+	find . -name "*.pyo" -exec rm -f "{}" \;
+	find . -name "*.pyc" -exec rm -f "{}" \;
 
 clean-build:
 	rm -f MANIFEST
