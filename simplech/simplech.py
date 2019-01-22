@@ -244,18 +244,26 @@ class AsyncClickHouse(BaseClickHouse):
         """
         buff = self._buffer.get(table)
         if buff and len(buff):
-            asyncio.ensure_future(self._flush(table))
+            return asyncio.ensure_future(self._flush(table))
 
+    def flush_all(self):
+        tasks = []
+        for k in self._buffer:
+            fut = self.flush(k)
+            if fut:
+                tasks.append(fut)
+        return asyncio.gather(*tasks)
+        
     async def _flush(self, table):
         """
         Flushing buffer to DB
         """
         try:
             sql_query = f'INSERT INTO {table} FORMAT JSONEachRow'
-            if self._buffer[table].full:
-                buff = self._buffer[table].encode('utf-8')
-                self._buffer[table] = ''
-                resp_data = await self.run(sql_query, data=buff)
+            buff = self._buffer[table]
+            if buff and len(self._buffer[table]):
+                self._buffer[table] = Buffer()
+                resp_data = await self.run(sql_query, data=buff.buffer)
                 return resp_data
         except Exception:
             logger.exception('ch ex')
@@ -302,7 +310,7 @@ class AsyncClickHouse(BaseClickHouse):
             f"Making query to {self.base_url} with %s. timeout:{self.timeout}", self._build_params(sql_query))
         return session.request(
             method,
-            self.scheme + '://' + self.base_url,
+            url=self.scheme + '://' + self.base_url,
             timeout=self.timeout,
             params=self._build_params(sql_query),
             data=body, chunked=True)

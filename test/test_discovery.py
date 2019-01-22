@@ -4,9 +4,9 @@ import os
 import pytest
 from time import sleep
 from itertools import count
-from simplech import TableDiscovery, ClickHouse, DeltaGenerator
+from simplech import TableDiscovery, ClickHouse, DeltaGenerator, AsyncClickHouse
 from simplech.discovery import final_choose, handle_string
-from simplech.mock import HttpClientMock
+from simplech.mock import HttpClientMock, AsyncHttpClientMock
 import datetime
 import asyncio
 
@@ -173,26 +173,33 @@ def test_ch_push():
     assert len(recs) == 2
 
 
-def test_async_ch_push():
+async def async_ch_push():
 
+    ch = AsyncClickHouse()
+    ch.conn_class = AsyncHttpClientMock
 
-    ch = ClickHouse()
-    ch.conn_class = HttpClientMock
-
-    ch.run('CREATE TABLE IF NOT EXISTS test1 (name String) ENGINE = Log()')
+    await ch.run('CREATE TABLE IF NOT EXISTS test1 (name String) ENGINE = Log()')
     ch.push('textxx', {'name': 'lalala'})
-    ch.flush_all()
-    recs = [*ch.objects_stream('SELECT * FROM textxx')]
+    await ch.flush_all()
+    recs = []
+    async for rec in ch.objects_stream('SELECT * FROM textxx'):
+        print(type(rec))
+        recs.append(rec)
     assert len(recs) == 1
     ch.push('textxx', {'name': 'nananan'})
-    ch.flush('textxx')
-    recs = [*ch.objects_stream('SELECT * FROM textxx')]
+    await ch.flush('textxx')
+    recs = []
+    async for rec in ch.objects_stream('SELECT * FROM textxx'):
+        print(type(rec))
+        recs.append(rec)
     assert len(recs) == 2
 
+
+def test_async_ch_push():
     
-
-
-
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(async_ch_push())
+    loop.close()
 
 
 def test_ch_context_manager():
