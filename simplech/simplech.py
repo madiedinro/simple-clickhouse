@@ -196,8 +196,8 @@ class BaseClickHouse():
             params['password'] = self.password
         return params
 
-    def discover(self, table, records=None):
-        return TableDiscovery(table=table, ch=self, records=records)
+    def discover(self, table, records=None, columns=None):
+        return TableDiscovery(table=table, ch=self, records=records, columns=columns)
 
     def flush(self, table):
         pass

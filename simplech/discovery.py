@@ -244,6 +244,24 @@ class TableDiscovery:
             return self.ch.run(query)
         return query
 
+    def pycode(self):
+        """
+        """
+        def get_types(types):
+            return [t.__name__ for n, t in types.items()]
+        date = [d for d in [self.date_field] if d != None]
+        idx = [i for i in self.tc.idx if i != None]
+        metrics = [k for k in self.get_metrics()]
+        dimensions = [k for k in self.get_dimensions()]
+        cols = {k: t.__name__ for k, t in self.columns.items()}
+        code = f"td = ch.discover('{self.table}', columns={cols}"
+        code += f").metrics(*{metrics}"
+        code += f").dimensions(*{dimensions}"
+        code += f").date(*{date}"
+        code += f").idx(*{idx})"
+        return code
+
+
     def merge_tree(self, execute=False):
         """
         Generate ClickHouse MergeTree create statement

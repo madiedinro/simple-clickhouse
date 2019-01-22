@@ -83,9 +83,6 @@ def test_ch_push():
 
 
 
-
-
-
 async def async_ch_differ():
 
     ch = AsyncClickHouse()
