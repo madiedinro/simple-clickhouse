@@ -109,12 +109,23 @@ b'{"browser_if": [0, 2],"browser_sr_asp": 4000,"browser_sr_avail_h": 740,"browse
 В simplech запись объекта производится при помощи метода `push`, но непосредственно запись
 будет произведена при достижении лимита буффера, устанавливаемого параметром конструктора `buffer_limit`.
 
-```python
->>> for i in range(1, 1500):
->>> 	ch.push('my_table', {'name': 'hux', 'num': i})
->>> ch.flush('my_table')
 
->>> await ch.select('SELECT count() FROM my_table')
+```python
+with ch.batch('tablename') as b:
+    for deal in deals:
+        b.push(deal)
+```
+
+On exit context all data will be flushed.
+
+Old manual conrolled mechanic.
+
+```python
+for i in range(1, 1500):
+    ch.push('my_table', {'name': 'hux', 'num': i})
+ch.flush('my_table')
+
+await ch.select('SELECT count() FROM my_table')
 
 1499
 ```

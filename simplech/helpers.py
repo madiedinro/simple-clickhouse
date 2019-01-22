@@ -1,6 +1,7 @@
 import re
 import datetime
 import arrow
+from .types import *
 
 
 float_re = re.compile(r'^\-?\d+\.\d{1,8}$')
@@ -11,7 +12,7 @@ datetime_re = re.compile(
 
 
 def is_date(v):
-    return isinstance(v, datetime.date) or v == datetime.date
+    return isinstance(v, Date) or v == Date
 
 
 def isfloat_re(v):
@@ -36,14 +37,25 @@ def cast_string(v):
             dt = arrow.get(v)
             dtt = dt.time()
             if dtt.hour == 0 and dtt.minute == 0 and dtt.second == 0:
-                return datetime.date
+                return Date
             else:
-                return datetime.datetime
+                return DateTime
         except:
             pass
     if isnumeric_re(v):
         if v.count('.') == 0:
-            return int
+            return Int64
         if isfloat_re(v):
-            return float
-    return str
+            return Float64
+    return String
+
+
+def max_type(counter):
+    max_name = None
+    max_value = 0
+    for cname in counter:
+        value = TYPES_PRIORITY[cname]
+        if value > max_value:
+            max_value = value
+            max_name = cname
+    return max_name

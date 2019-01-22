@@ -1,36 +1,118 @@
 from typing import NewType
 
 
+class UInt64(int):
+    """
+    Unsigned Int 64bit type
+    """
 
-UInt64 = NewType('UInt64', int)
-Int64 = NewType('Int64', int)
-UInt32 = NewType('UInt32', int)
-Int32 = NewType('Int32', int)
-UInt16 = NewType('UInt16', int)
-Int16 = NewType('Int16', int)
-UInt8 = NewType('UInt8', int)
-Int8 = NewType('Int8', int)
-String = NewType('String', str)
-Date = NewType('String', str)
-DateTime = NewType('String', str)
-Float64 = NewType('Float64', float)
-Float32 = NewType('Float32', float)
+class Int64(int):
+    """
+    Int 64bit type
+    """
 
 
+class UInt32(int):
+    """
+    Unsigned Int 32bit type
+    """
 
 
-TYPES_PRIORITY = (
-    String,
-    Float64,
-    Float32,
-    UInt64,
-    UInt32,
-    UInt16,
-    UInt8,
-    Int64,
-    Int32,
-    Int16,
-    Int8,
-    DateTime,
-    Date
-)
+class Int32(int):
+    """
+    Int 32bit type
+    """
+
+
+class UInt16(int):
+    """
+    Unsigned Int 64bit type
+    """
+
+
+class Int16(int):
+    """
+    Int 64bit type
+    """
+
+
+class UInt8(int):
+    """
+    Unsigned Int 64bit type
+    """
+
+
+class Int8(int):
+    """
+    Int 64bit type
+    """
+
+
+
+class String(str):
+    """
+    String type
+    """
+
+
+
+class Date(str):
+    """
+    Date type (as string)
+    """
+
+
+
+class DateTime(str):
+    """
+    DateTime type (as string
+    """
+
+
+
+class Float64(float):
+    """
+    Float 64bit type
+    """
+
+
+
+class Float32(float):
+    """
+    Float 64bit type
+    """
+
+
+TYPES_PRIORITY = {
+    'String': 13,
+    'Float64': 12,
+    'Float32': 11,
+    'UInt64': 10,
+    'UInt32': 9,
+    'UInt16': 8,
+    'UInt8': 7,
+    'Int64': 6,
+    'Int32': 5,
+    'Int16': 4,
+    'Int8': 3,
+    'DateTime': 2,
+    'Date': 1
+}
+
+
+__all__ = [
+    'String',
+    'Float64',
+    'Float32',
+    'UInt64',
+    'UInt32',
+    'UInt16',
+    'UInt8',
+    'Int64',
+    'Int32',
+    'Int16',
+    'Int8',
+    'DateTime',
+    'Date',
+    'TYPES_PRIORITY'
+]

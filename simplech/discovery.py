@@ -6,26 +6,16 @@ from collections import defaultdict, Counter
 from typing import List, Dict, Mapping, Set, Callable, Any
 from pydantic import BaseModel
 from .deltagen import DeltaGenerator
-from .helpers import cast_string, is_date
+from .helpers import cast_string, is_date, max_type
+from . import types as cht
 
-
-weight = {
-    str.__name__: 99,
-    datetime.datetime.__name__: 88,
-    datetime.date.__name__: 77,
-    float.__name__: 66,
-    int.__name__: 44,
+PYTOCH_MAP = {
+    str: cht.String,
+    float: cht.Float64,
+    int: cht.Int64,
+    datetime.date: cht.Date,
+    datetime.datetime: cht.DateTime
 }
-
-
-type_map = defaultdict(lambda: 'Unknown')
-type_map.update({
-    str: 'String',
-    float: 'Float64',
-    int: 'UInt64',
-    datetime.date: 'Date',
-    datetime.datetime: 'DateTime'
-})
 
 
 def final_choose(v_set):
@@ -35,7 +25,7 @@ def final_choose(v_set):
     elif len(lst) == 1:
         return lst[0]
     else:
-        mapped = [weight[x.__name__] for x in lst]
+        mapped = [cht.TYPES_PRIORITY[x.__name__] for x in lst]
         maxi = mapped.index(max(mapped))
         return lst[maxi]
 
@@ -64,8 +54,6 @@ class DeltaRunner:
             if coro:
                 await coro
 
-         
-
 
 class TableDescription(BaseModel):
     table: str = None
@@ -85,7 +73,8 @@ class Guesstimator:
 
 
 class TableDiscovery:
-    def __init__(self, table, ch=None, records=None, **kwargs):
+
+    def __init__(self, table, ch=None, records=None, columns=None, **kwargs):
         """
         arguments:
         records - one record (dict) or list of records (list[dict])
@@ -102,6 +91,10 @@ class TableDiscovery:
             # By default all cols are dimensions
             self.tc.dimensions_set = set(self.tc.columns.keys())
             self.after_classification()
+        
+        if columns:
+            self.tc.columns = self.process_provided_config(columns)
+
         self.stat = {
             'push': 0
         }
@@ -110,6 +103,16 @@ class TableDiscovery:
     @property
     def date_field(self):
         return self.tc.date_field
+
+    def process_provided_config(self, columns):
+        res = {}
+        for cname, ctype in columns.items():
+            if isinstance(ctype, str):
+                ctype = getattr(cht, ctype)
+            elif not hasattr(cht, ctype):
+                raise TypeError('Wrong data type')
+            res[cname] = ctype
+        return res
 
     def discover_by_data(self, records, analyze_strings=True, limit=500):
         if isinstance(records, dict):
@@ -122,16 +125,19 @@ class TableDiscovery:
                     f'Wrong data type. Expected dict given {type(d)}')
             for k, v in d.items():
                 t = type(v)
-                if analyze_strings and t == str:
+                typech = PYTOCH_MAP.get(t)
+                if typech:
+                    t = typech
+                if analyze_strings and (t == str or t == cht.String):
                     t = cast_string(v)
-                cols[k] = cols.get(k, set())
-                cols[k].add(t)
+                cols[k] = cols.get(k, Counter())
+                cols[k].update([t.__name__])
             if i == limit:
                 break
         if i > 0:
             self.fillfuled = True
-        cols = {key: final_choose(v_set) for key, v_set in cols.items()}
-        return cols
+
+        return {cname: getattr(cht, max_type(counter)) for cname, counter in cols.items()}
 
     def push(self, row):
         self.stat['push'] += 1
@@ -142,22 +148,22 @@ class TableDiscovery:
 
     def date(self, *args):
         for k in args:
-            self.set(k, datetime.date)
+            self.set(k, cht.Date)
         return self
 
     def float(self, *args):
         for k in args:
-            self.set(k, float)
+            self.set(k, cht.Float64)
         return self
 
     def int(self, *args):
         for k in args:
-            self.set(k, int)
+            self.set(k, cht.Int64)
         return self
 
     def str(self, *args):
         for k in args:
-            self.set(k, str)
+            self.set(k, cht.String)
         return self
 
     def idx(self, *args):
@@ -244,7 +250,7 @@ class TableDiscovery:
         """
         idx = ', '.join([f'`{f}`' for f in self.tc.idx or []])
         query = f'CREATE TABLE IF NOT EXISTS `{self.table}` (\n'
-        query += ",\n".join([f'  `{f}`  {type_map[t]}' for f,  t in self.columns.items()]) + '\n'
+        query += ",\n".join([f'  `{f}`  {t.__name__}' for f,  t in self.columns.items()]) + '\n'
         query += f') ENGINE MergeTree() PARTITION BY toYYYYMM(`{self.tc.date_field}`) ORDER BY ({idx}) SETTINGS index_granularity={self.tc.index_granularity}\n'
         if execute == True:
             return self.ch.run(query)

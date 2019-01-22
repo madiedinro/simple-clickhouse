@@ -7,8 +7,11 @@ from itertools import count
 from simplech import TableDiscovery, ClickHouse, DeltaGenerator, AsyncClickHouse
 from simplech.discovery import final_choose, cast_string
 from simplech.mock import HttpClientMock, AsyncHttpClientMock
+from simplech.helpers import max_type
 import datetime
 import asyncio
+from collections import Counter
+from simplech.types import *
 
 set1 = [
     {'date': '2018-12-31', 'ga_channelGrouping': 'Organic Search', 'ga_dateHourMinute': '201812311517', 'ga_dimension2': '128983921.1546258642', 'ga_fullReferrer': 'google', 'ga_newUsers': '1', 'ga_pageviews': '1', 'ga_sessionCount': '1',
@@ -48,19 +51,19 @@ def test_ch_run():
 
 def test_string_detection():
 
-    assert cast_string('1.0') == float
-    assert cast_string('1,0') == str
-    assert cast_string('1') == int
-    assert cast_string('10000') == int
-    assert cast_string('0') == int
-    assert cast_string('-1') == int
-    assert cast_string('-10.0') == float
-    assert cast_string('-1.00001') == float
-    assert cast_string('-1.00001') == float
-    assert cast_string('dsfsdfsd') == str
-    assert cast_string('2018-12-22') == datetime.date
-    assert cast_string('2018-12-22 18:33:44') == datetime.datetime
-    assert cast_string('sdfsdf 2018-12-22 18:33:44') == str
+    assert cast_string('1.0') == Float64
+    assert cast_string('1,0') == String
+    assert cast_string('1') == Int64
+    assert cast_string('10000') == Int64
+    assert cast_string('0') == Int64
+    assert cast_string('-1') == Int64
+    assert cast_string('-10.0') == Float64
+    assert cast_string('-1.00001') == Float64
+    assert cast_string('-1.00001') == Float64
+    assert cast_string('dsfsdfsd') == String
+    assert cast_string('2018-12-22') == Date
+    assert cast_string('2018-12-22 18:33:44') == DateTime
+    assert cast_string('sdfsdf 2018-12-22 18:33:44') == String
 
 
 def test_wrap_sync():
@@ -82,24 +85,24 @@ def test_wrap_sync():
 
     assert td1.tc.date_field == 'date'
 
-    assert td1.tc.columns == {'date': datetime.date,
-                              'ga_sessionCount': int,
-                              'ga_channelGrouping': str,
-                              'ga_dateHourMinute': int,
-                              'ga_dimension2': str,
-                              'ga_fullReferrer': str,
-                              'ga_newUsers': int,
-                              'ga_pageviews': int,
-                              'ga_sessions': int,
-                              'ga_timeOnPage': float,
-                              'ga_users': int,
-                              'profile_id': int,
-                              'ga_socialNetwork': str,
-                              'utm_campaign': str,
-                              'utm_content': str,
-                              'utm_medium': str,
-                              'utm_source': str,
-                              'utm_term': str}
+    assert td1.tc.columns == {'date': Date,
+                              'ga_sessionCount': Int64,
+                              'ga_channelGrouping': String,
+                              'ga_dateHourMinute': Int64,
+                              'ga_dimension2': String,
+                              'ga_fullReferrer': String,
+                              'ga_newUsers': Int64,
+                              'ga_pageviews': Int64,
+                              'ga_sessions': Int64,
+                              'ga_timeOnPage': Float64,
+                              'ga_users': Int64,
+                              'profile_id': Int64,
+                              'ga_socialNetwork': String,
+                              'utm_campaign': String,
+                              'utm_content': String,
+                              'utm_medium': String,
+                              'utm_source': String,
+                              'utm_term': String}
     assert 'utm_medium' in td1.get_dimensions()
     assert 'ga_sessions' in td1.get_metrics()
     assert 'ga_stat' == td1.table
@@ -107,11 +110,11 @@ def test_wrap_sync():
     # assert  == [20, 1]
 
     assert td1.tc.metrics == {
-        'ga_newUsers': int,
-        'ga_pageviews': int,
-        'ga_sessions': int,
-        'ga_timeOnPage': float,
-        'ga_users': int,
+        'ga_newUsers': Int64,
+        'ga_pageviews': Int64,
+        'ga_sessions': Int64,
+        'ga_timeOnPage': Float64,
+        'ga_users': Int64,
 
     }
 
@@ -167,9 +170,9 @@ def test_td_context_manager():
 
 def test_final_type():
 
-    assert final_choose(set([str, datetime.date])) == str
-    assert final_choose(set([datetime.date, str])) == str
-    assert final_choose(set([datetime.date, int])) == datetime.date
+    assert max_type(Counter(['String', 'DateTime'])) == 'String'
+    assert max_type(Counter(['Date', 'String'])) == 'String'
+    assert max_type(Counter(['Date', 'Int64'])) == 'Int64'
 
 
 # if __name__ == '__main__':

@@ -30,7 +30,7 @@ class HttpClientMock:
         self.url = url
         self.items = []
         self.last_method = None
-
+    
     def process_select(self):
         self.buff = io.BytesIO(self.__class__.content)
         self.buff.seek(0)
@@ -49,6 +49,9 @@ class HttpClientMock:
         data = kwargs.get('data')
         if data:
             body = data
+        if self.last_method == 'post' and q and self.last_query.startswith('create') and body:
+            self.__class__.content = b''
+
         if self.last_method == 'post' and q and self.last_query.startswith('insert') and body:
             if isinstance(body, io.BytesIO):
                 self.__class__.content += body.getvalue()
