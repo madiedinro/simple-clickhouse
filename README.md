@@ -279,6 +279,22 @@ ch.close()
 
 - [ ] Focus on CollapsingMergeTree
 
+
+#### Code generationm
+
+Next times after use table auto discovery you shoud use fixed layout. To to this easy try `TableDiscovery.pycode()`
+
+```python
+code = td.pycode()
+print(code)
+```
+
+will be returned
+
+```
+td = ch.discover('deals', columns={'id': 'Int64', 'uid': 'Int64', 'cid': 'String', 'sale': 'Int64', 'date': 'Date', 'date_time': 'DateTime', 'account_id': 'Int64'}).metrics(*['sale']).dimensions(*['date_time', 'account_id', 'cid', 'uid', 'id', 'date']).date(*['date']).idx(*['account_id', 'date'])
+```
+
 ## Синхронная версия
 
 ### Выполнение запроса и чтение всего результата сразу
