@@ -5,7 +5,7 @@ import pytest
 from time import sleep
 from itertools import count
 from simplech import TableDiscovery, ClickHouse, DeltaGenerator, AsyncClickHouse
-from simplech.discovery import final_choose, handle_string
+from simplech.discovery import final_choose, cast_string
 from simplech.mock import HttpClientMock, AsyncHttpClientMock
 import datetime
 import asyncio
@@ -48,59 +48,65 @@ def test_ch_run():
 
 def test_string_detection():
 
-    assert handle_string('1.0') == float
-    assert handle_string('1,0') == str
-    assert handle_string('1') == int
-    assert handle_string('10000') == int
-    assert handle_string('0') == int
-    assert handle_string('-1') == int
-    assert handle_string('-10.0') == float
-    assert handle_string('-1.00001') == float
-    assert handle_string('-1.00001') == float
-    assert handle_string('dsfsdfsd') == str
-    assert handle_string('2018-12-22') == datetime.date
-    assert handle_string('2018-12-22 18:33:44') == datetime.datetime
-    assert handle_string('sdfsdf 2018-12-22 18:33:44') == str
-    
+    assert cast_string('1.0') == float
+    assert cast_string('1,0') == str
+    assert cast_string('1') == int
+    assert cast_string('10000') == int
+    assert cast_string('0') == int
+    assert cast_string('-1') == int
+    assert cast_string('-10.0') == float
+    assert cast_string('-1.00001') == float
+    assert cast_string('-1.00001') == float
+    assert cast_string('dsfsdfsd') == str
+    assert cast_string('2018-12-22') == datetime.date
+    assert cast_string('2018-12-22 18:33:44') == datetime.datetime
+    assert cast_string('sdfsdf 2018-12-22 18:33:44') == str
+
 
 def test_wrap_sync():
-    td1 = TableDiscovery(set1, 'ga_stat')
+    td1 = TableDiscovery('ga_stat', records=set1)
     td1.date(
-        'date').idx('ga_dimension2',
-                    'date').metrics('ga_pageviews',
-                                    'ga_newUsers',
-                                    'ga_timeOnPage',
-                                    'ga_sessions',
-                                    'ga_users')
+        'date'
+    ).metrics(
+        'ga_pageviews',
+        'ga_newUsers',
+        'ga_timeOnPage',
+        'ga_sessions',
+        'ga_users'
+    ).idx(
+        'ga_dimension2',
+        'date'
+    )
+
     assert td1.tc.idx == ['ga_dimension2', 'date']
-    
+
     assert td1.tc.date_field == 'date'
 
-    assert td1.final_cols() == {'date': datetime.date,
-                                'ga_sessionCount': int,
-                                'ga_channelGrouping': str,
-                                'ga_dateHourMinute': int,
-                                'ga_dimension2': str,
-                                'ga_fullReferrer': str,
-                                'ga_newUsers': int,
-                                'ga_pageviews': int,
-                                'ga_sessions': int,
-                                'ga_timeOnPage': float,
-                                'ga_users': int,
-                                'profile_id': int,
-                                'ga_socialNetwork': str,
-                                'utm_campaign': str,
-                                'utm_content': str,
-                                'utm_medium': str,
-                                'utm_source': str,
-                                'utm_term': str}
+    assert td1.tc.columns == {'date': datetime.date,
+                              'ga_sessionCount': int,
+                              'ga_channelGrouping': str,
+                              'ga_dateHourMinute': int,
+                              'ga_dimension2': str,
+                              'ga_fullReferrer': str,
+                              'ga_newUsers': int,
+                              'ga_pageviews': int,
+                              'ga_sessions': int,
+                              'ga_timeOnPage': float,
+                              'ga_users': int,
+                              'profile_id': int,
+                              'ga_socialNetwork': str,
+                              'utm_campaign': str,
+                              'utm_content': str,
+                              'utm_medium': str,
+                              'utm_source': str,
+                              'utm_term': str}
     assert 'utm_medium' in td1.get_dimensions()
     assert 'ga_sessions' in td1.get_metrics()
     assert 'ga_stat' == td1.table
     assert 'toYYYYMM' in td1.merge_tree()
     # assert  == [20, 1]
 
-    assert td1.get_metrics_funcs() == {
+    assert td1.tc.metrics == {
         'ga_newUsers': int,
         'ga_pageviews': int,
         'ga_sessions': int,
@@ -113,7 +119,7 @@ def test_wrap_sync():
 def test_simplech_wrapping():
 
     ch = ClickHouse()
-    td = ch.discovery(set1, 'ga_stat')
+    td = ch.discover('ga_stat', set1)
     td.date(
         'date').idx('ga_dimension2',
                     'date').metrics('ga_pageviews',
@@ -129,21 +135,24 @@ def test_dimensions():
 
     # 'date', 'cid', 'date_time', 'id', 'sale', 'uid'
     ch = ClickHouse()
-    td = ch.discovery(set3, 'ga_stat').date('date').idx('date').metrics('sale')
+    td = ch.discover('ga_stat', set3).date('date').idx('date').metrics('sale')
 
-    assert td.tc.dimensions == {'cid', 'date_time', 'id', 'date', 'uid'}
-    td = ch.discovery(set3, 'ga_stat').date('date').idx('date')
-    assert td.tc.dimensions == {'cid', 'date_time', 'id', 'date', 'uid', 'sale'}
+    assert set(td.tc.dimensions.keys()) == {
+        'cid', 'date_time', 'id', 'date', 'uid'}
+    td = ch.discover('ga_stat', set3).date('date').idx('date')
+    assert set(td.tc.dimensions.keys()) == {
+        'cid', 'date_time', 'id', 'date', 'uid', 'sale'}
+
 
 def test_td_context_manager():
 
     ch = ClickHouse()
-    td = ch.discovery(set3, 'ga_stat').date('date').idx('date').metrics('sale')
+    td = ch.discover('ga_stat', set3).date('date').idx('date').metrics('sale')
 
     d1 = '2019-01-10'
     d2 = '2019-01-13'
 
-    with td.difference(d1, d2) as delta:
+    with td.difference(d1, d2, set3) as delta:
 
         assert type(delta) == DeltaGenerator
         assert delta.d1 == d1
@@ -156,61 +165,6 @@ def test_td_context_manager():
     assert 'ga_stat' == td.table
 
 
-def test_ch_push():
-
-
-    ch = ClickHouse()
-    ch.conn_class = HttpClientMock
-
-    ch.run('CREATE TABLE IF NOT EXISTS test1 (name String) ENGINE = Log()')
-    ch.push('textxx', {'name': 'lalala'})
-    ch.flush_all()
-    recs = [*ch.objects_stream('SELECT * FROM textxx')]
-    assert len(recs) == 1
-    ch.push('textxx', {'name': 'nananan'})
-    ch.flush('textxx')
-    recs = [*ch.objects_stream('SELECT * FROM textxx')]
-    assert len(recs) == 2
-
-
-async def async_ch_push():
-
-    ch = AsyncClickHouse()
-    ch.conn_class = AsyncHttpClientMock
-
-    await ch.run('CREATE TABLE IF NOT EXISTS test1 (name String) ENGINE = Log()')
-    ch.push('textxx', {'name': 'lalala'})
-    await ch.flush_all()
-    recs = []
-    async for rec in ch.objects_stream('SELECT * FROM textxx'):
-        print(type(rec))
-        recs.append(rec)
-    assert len(recs) == 1
-    ch.push('textxx', {'name': 'nananan'})
-    await ch.flush('textxx')
-    recs = []
-    async for rec in ch.objects_stream('SELECT * FROM textxx'):
-        print(type(rec))
-        recs.append(rec)
-    assert len(recs) == 2
-
-
-def test_async_ch_push():
-    
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(async_ch_push())
-    loop.close()
-
-
-def test_ch_context_manager():
-
-    ch = ClickHouse()
-    ch.conn_class = HttpClientMock
-
-    ch.run('CREATE TABLE IF NOT EXISTS test1 (name String) ENGINE = Log()')
-    with ch.batch('test1') as bw:
-        bw.push({'name': 'lalala'})
-
 def test_final_type():
 
     assert final_choose(set([str, datetime.date])) == str
@@ -218,5 +172,5 @@ def test_final_type():
     assert final_choose(set([datetime.date, int])) == datetime.date
 
 
-if __name__ == '__main__':
-    test_wrap_sync()
+# if __name__ == '__main__':
+#     test_wrap_sync()

@@ -13,7 +13,7 @@ class AsyncContent:
         return self
 
     async def __anext__(self):
-        await asyncio.sleep(0.2)
+        await asyncio.sleep(0.05)
         line = self.buff.readline(999)
         if not line:
             raise StopAsyncIteration
@@ -96,7 +96,7 @@ class AsyncHttpClientMock(HttpClientMock):
         return self
 
     async def __aexit__(self, exc_type, exc, tb):
-        await asyncio.sleep(0.1)
+        await asyncio.sleep(0.05)
 
     def request(self, method, url, *args, **kwargs):
         return super().request(method, url, *args, **kwargs)

@@ -175,6 +175,7 @@ class BaseClickHouse():
         self._buffer_limit = buffer_limit
         self.timeout = 10
         self.flush_every = 5
+        self._flush_timer = None
         self.loop = loop
         self.session_id = session_id or str(time())
         self.conn_class = None
@@ -195,8 +196,8 @@ class BaseClickHouse():
             params['password'] = self.password
         return params
 
-    def discovery(self, records, table):
-        return TableDiscovery(records, table, self)
+    def discover(self, table, records=None):
+        return TableDiscovery(table=table, ch=self, records=records)
 
     def flush(self, table):
         pass
@@ -224,19 +225,25 @@ class BaseClickHouse():
     def set_debug(level=logging.DEBUG):
         logger.setLevel(level)
 
+    def close(self):
+        pass
 
 class AsyncClickHouse(BaseClickHouse):
 
     def _init(self):
         if not self.loop:
             self.loop = asyncio.get_event_loop()
-        asyncio.ensure_future(self._timer(), loop=self.loop)
+        self._flush_timer = asyncio.ensure_future(self._timer(), loop=self.loop)
         self.conn_class = aiohttp.ClientSession
 
     async def _timer(self):
         while True:
             await asyncio.sleep(self.flush_every)
             self.flush_all()
+
+    def close(self):
+        if self._flush_timer:
+            self._flush_timer.cancel()
 
     def flush(self, table):
         """

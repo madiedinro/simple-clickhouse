@@ -130,7 +130,9 @@ b'{"browser_if": [0, 2],"browser_sr_asp": 4000,"browser_sr_avail_h": 740,"browse
 
 ## Some Simpe Magick
 
-### Schema by date detection
+### Schema detection
+
+Detect using present data
 
 ```python
 ch = ClickHouse()
@@ -152,12 +154,9 @@ CREATE TABLE IF NOT EXISTS `deals` (
   `date_time`  DateTime,
   `account_id`  UInt64
 ) ENGINE MergeTree() PARTITION BY toYYYYMM(`date`) ORDER BY (`account_id`, `date`) SETTINGS index_granularity=8192
-
-
 ```
 
-
-#### ch.discovery(data, 'table_name') 
+#### ch.discover(data, 'table_name') 
 
 -> TableDiscovery instanse
 
@@ -167,7 +166,7 @@ CREATE TABLE IF NOT EXISTS `deals` (
 
 returns self
 
-#### Set date columns
+**Set date columns**
 
 `TableDiscovery.date(*args)`
 
@@ -175,14 +174,23 @@ Set date column
 
 returns self
 
+**Set str columns**
 
-#### Set primary key columns
+`TableDiscovery.str(*args)`
+
+Set strinmg column
+
+returns self
+
+#### Columns configuration
+
+**Set primary key columns**
 
 .idx(*args)
 
 returns self
 
-#### Set metrics cols
+**Set metrics**
 
 .metrics(*args)
 
@@ -190,22 +198,75 @@ returns self
 
 other marked as dimensions
 
-#### Set dimensions cols
+**Set dimensions**
 
 .dimensions(*args)
 
 other marked as metrics
 
-#### Retur query / execute query
+#### Print table create statement / execute query
 
 td.merge_tree(Execute=True|False)
 
 #### Chaining
 
+td.date('date').metrics('sale').idx('account_id', 'date')
 
-td.date('date').idx('account_id', 'date').metrics('sale')
+#### Discovery TODO
+
+- [ ] Support all ClickHouse types, especially Arrays
+- [ ] Discovery by Table structure
 
 
+
+### Difference handling. Be careful currently it Proof of concept
+
+#### Sync version
+
+
+```python
+
+ch = ClickHouse()
+
+upd = [{'name': 'lalala', 'value': 1}, {'name': 'bababa', 'value': 2}, {'name': 'nanana', 'value': 3}]
+td = ch.discover('test1', upd).metrics('value')
+
+d1 = '2019-01-10'
+d2 = '2019-01-13'
+
+new_recs = []
+with td.difference(d1, d2, upd) as delta:
+    for row in delta:
+        print(row)
+        td.push(row)
+```
+
+All pushed records will be flushed on exit context
+
+#### Async version
+
+```python
+
+ch = AsyncClickHouse()
+
+# new data
+upd = [{'name': 'lalala', 'value': 1}, {'name': 'bababa', 'value': 2}, {'name': 'nanana', 'value': 3}]
+td = ch.discover('test1', upd).metrics('value')
+
+d1 = '2019-01-10'
+d2 = '2019-01-13'
+
+async with td.difference(d1, d2, upd) as delta:
+    async for row in delta:
+        td.push(row)
+
+# Stop flush timer
+ch.close()
+```
+
+#### Difference TODO
+
+- [ ] Focus on CollapsingMergeTree
 
 ## Синхронная версия
 
