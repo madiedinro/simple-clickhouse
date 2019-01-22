@@ -17,9 +17,10 @@ Or latest version from git
 pip install -U git+https://github.com/madiedinro/simple-clickhouse.git
 ```
 
-## Использование
+## Connection params
 
-Доступно две версии: асинхронная `AsyncClickHouse` и синхронная `ClickHouse`.
+Has a two versins: async `AsyncClickHouse` and sync `ClickHouse`.
+
 
 - **host:** [default: `127.0.0.1`] Хост с clickhouse
 - **port:** [default: `8123`]  Порт подключения
@@ -30,6 +31,7 @@ pip install -U git+https://github.com/madiedinro/simple-clickhouse.git
 - **session_id:** [default: `""`] Идентификатор сессии взамен автоматически сгенериованного
 - **dsn:** [default: `""`] Использовать DSN для подключения (пример: `http://default@127.0.0.1:8123/stats`)
 - **debug:** [default: `False`] Включение логов в режим отладки
+- **flush_every:** [default: `5`] Every X seconds data will be flushed to db
 - **buffer_limit:** [default: `1000`] Буффер записи на таблицу. При достижении будет произведена запись в БД
 - **loop:** [default: `None`] При необходимости указать конкретный loop (для асинхронной версии)
 
@@ -37,9 +39,9 @@ pip install -U git+https://github.com/madiedinro/simple-clickhouse.git
 
 Приоритет DSN: 1. аргумент конструктора `dsn`, 2. `CH_DSN` 3. `CLICKHOUSE_DSN`
 
-## Асинхронная версия
+## Async version
 
-### Выполнение запроса и чтение всего результата сразу
+### Selecting without decoding
 
 ```python
 >>> from simplech import AsyncClickHouse
@@ -50,7 +52,7 @@ default
 system
 ```
 
-### Получение записей потоком
+### Selecting as dict's steam
 
 Получить записи по отдельности, в виде `dict`.
 К запросу автоматически будет добавлено `FORMAT JSONEachRow`.
@@ -69,7 +71,7 @@ system
 #...
 ```
 
-#### Без декодирования
+#### Disabling decoding for streaming data
 
 ```python
 >>> from simplech import bytes_decoder
@@ -82,7 +84,7 @@ b'{"browser_if": [0, 2],"browser_sr_asp": 4000,"browser_sr_avail_h": 740,"browse
 
 Чтобы получить результат в виде строки воспользуйтесь `bytes_decoder`
 
-### Выполнение SQL операций и запись данныз
+### Executing sql statements
 
 Для для записи данных, управления БД и других операция (не select) слудует использовать метод `run`
 
@@ -102,7 +104,7 @@ b'{"browser_if": [0, 2],"browser_sr_asp": 4000,"browser_sr_avail_h": 740,"browse
 ''
 ```
 
-### Пакетная запись данных
+### Batch writing
 
 В simplech запись объекта производится при помощи метода `push`, но непосредственно запись
 будет произведена при достижении лимита буффера, устанавливаемого параметром конструктора `buffer_limit`.
@@ -124,6 +126,85 @@ b'{"browser_if": [0, 2],"browser_sr_asp": 4000,"browser_sr_avail_h": 740,"browse
 >>> ch.push('other_table', my_other_obj)
 >>> ch.flush_all()
 ```
+
+
+## Some Simpe Magick
+
+### Schema by date detection
+
+```python
+ch = ClickHouse()
+td = ch.discovery(deals, 'deals')
+td.date('date').idx('account_id', 'date').metrics('sale')
+
+ch.merge_tree()
+```
+
+result 
+
+```
+CREATE TABLE IF NOT EXISTS `deals` (
+  `id`  UInt64,
+  `uid`  UInt64,
+  `cid`  String,
+  `sale`  UInt64,
+  `date`  Date,
+  `date_time`  DateTime,
+  `account_id`  UInt64
+) ENGINE MergeTree() PARTITION BY toYYYYMM(`date`) ORDER BY (`account_id`, `date`) SETTINGS index_granularity=8192
+
+
+```
+
+
+#### ch.discovery(data, 'table_name') 
+
+-> TableDiscovery instanse
+
+#### Manual set datatypes
+
+`TableDiscovery.int(*args)` set columnts to int
+
+returns self
+
+#### Set date columns
+
+`TableDiscovery.date(*args)`
+
+Set date column
+
+returns self
+
+
+#### Set primary key columns
+
+.idx(*args)
+
+returns self
+
+#### Set metrics cols
+
+.metrics(*args)
+
+returns self
+
+other marked as dimensions
+
+#### Set dimensions cols
+
+.dimensions(*args)
+
+other marked as metrics
+
+#### Retur query / execute query
+
+td.merge_tree(Execute=True|False)
+
+#### Chaining
+
+
+td.date('date').idx('account_id', 'date').metrics('sale')
+
 
 
 ## Синхронная версия

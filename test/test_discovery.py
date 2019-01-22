@@ -6,9 +6,9 @@ from time import sleep
 from itertools import count
 from simplech import TableDiscovery, ClickHouse, DeltaGenerator
 from simplech.discovery import final_choose, handle_string
-from simplech.simplech import http_mock_factory
+from simplech.mock import HttpClientMock
 import datetime
-
+import asyncio
 
 set1 = [
     {'date': '2018-12-31', 'ga_channelGrouping': 'Organic Search', 'ga_dateHourMinute': '201812311517', 'ga_dimension2': '128983921.1546258642', 'ga_fullReferrer': 'google', 'ga_newUsers': '1', 'ga_pageviews': '1', 'ga_sessionCount': '1',
@@ -42,7 +42,7 @@ set3 = [
 def test_ch_run():
 
     ch = ClickHouse()
-    ch.conn_factory = http_mock_factory
+    ch.conn_class = HttpClientMock
     ch.run('SELECT')
 
 
@@ -132,13 +132,10 @@ def test_dimensions():
     td = ch.discovery(set3, 'ga_stat').date('date').idx('date').metrics('sale')
 
     assert td.tc.dimensions == {'cid', 'date_time', 'id', 'date', 'uid'}
-    
-
     td = ch.discovery(set3, 'ga_stat').date('date').idx('date')
-
     assert td.tc.dimensions == {'cid', 'date_time', 'id', 'date', 'uid', 'sale'}
 
-def test_context_manager():
+def test_td_context_manager():
 
     ch = ClickHouse()
     td = ch.discovery(set3, 'ga_stat').date('date').idx('date').metrics('sale')
@@ -158,6 +155,54 @@ def test_context_manager():
     assert td.tc.idx == ['date']
     assert 'ga_stat' == td.table
 
+
+def test_ch_push():
+
+
+    ch = ClickHouse()
+    ch.conn_class = HttpClientMock
+
+    ch.run('CREATE TABLE IF NOT EXISTS test1 (name String) ENGINE = Log()')
+    ch.push('textxx', {'name': 'lalala'})
+    ch.flush_all()
+    recs = [*ch.objects_stream('SELECT * FROM textxx')]
+    assert len(recs) == 1
+    ch.push('textxx', {'name': 'nananan'})
+    ch.flush('textxx')
+    recs = [*ch.objects_stream('SELECT * FROM textxx')]
+    assert len(recs) == 2
+
+
+def test_async_ch_push():
+
+
+    ch = ClickHouse()
+    ch.conn_class = HttpClientMock
+
+    ch.run('CREATE TABLE IF NOT EXISTS test1 (name String) ENGINE = Log()')
+    ch.push('textxx', {'name': 'lalala'})
+    ch.flush_all()
+    recs = [*ch.objects_stream('SELECT * FROM textxx')]
+    assert len(recs) == 1
+    ch.push('textxx', {'name': 'nananan'})
+    ch.flush('textxx')
+    recs = [*ch.objects_stream('SELECT * FROM textxx')]
+    assert len(recs) == 2
+
+    
+
+
+
+
+
+def test_ch_context_manager():
+
+    ch = ClickHouse()
+    ch.conn_class = HttpClientMock
+
+    ch.run('CREATE TABLE IF NOT EXISTS test1 (name String) ENGINE = Log()')
+    with ch.batch('test1') as bw:
+        bw.push({'name': 'lalala'})
 
 def test_final_type():
 

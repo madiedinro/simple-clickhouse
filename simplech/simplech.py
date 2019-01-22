@@ -1,21 +1,24 @@
 
 
-
 from collections import defaultdict
 from time import time
 import logging
 import os
+import io
 import http.client
 import urllib.parse
 import ujson
 import asyncio
 import aiohttp
 from . import TableDiscovery
+from . import DeltaGenerator
+
 
 LOGGER_FORMAT = '%(asctime)s %(levelname)s %(message)s'
 FORMAT_JSONEACHROW = ' FORMAT JSONEachRow'
 FORMAT = 'FORMAT'
 JSONEACHROW = 'JSONEachRow'
+
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.WARN)
@@ -24,8 +27,10 @@ log_handler = logging.StreamHandler()
 log_handler.setFormatter(log_formatter)
 logger.addHandler(log_handler)
 
+
 def format_format(val):
     return ' ' + FORMAT + ' ' + val if val else ''
+
 
 def none_decoder(val):
     return val
@@ -38,6 +43,7 @@ def json_decoder(val):
 def bytes_decoder(val):
     return val.decode()
 
+
 decoders = {
     'none': none_decoder,
     'json': json_decoder,
@@ -46,41 +52,61 @@ decoders = {
 
 
 
-# class HttpResponseMock:
-    
-#     def status()
-    
+class Buffer:
+    def __init__(self, buffer_limit=5000):
+        self.buffer_limit = buffer_limit
+        self.buffer = io.BytesIO()
+        self.counter = 0
+        self.full = False
 
-class HttpClientMock:
-    status = 200
-    code = 200
-    length = 0
-    content = b''
+    def __len__(self):
+        return self.counter
 
-    def __init__(self, url):
-        self.url = url
-    
-    def request(self, *args, **kwargs):
-        pass
+    def prepare(self):
+        self.buffer.seek(0)
 
-    def getresponse(self):
+    def append(self, rec):
+        self.buffer.write((rec + '\n').encode())
+        self.counter += 1
+        if self.counter >= self.buffer_limit:
+            self.full = True
+
+
+class WriterContext:
+    def __init__(self, ch, table, dump_json=True, ensure_ascii=False, buffer_limit=5000):
+        self.ch = ch
+        self.ensure_ascii = ensure_ascii
+        self.dump_json = dump_json
+        self.buffer_limit = buffer_limit
+        self.table = table
+        self.set_buffer()
+
+    def flush(self):
+        self.buffer.prepare()
+        self.ch._flush(self.table, self.buffer)
+        self.set_buffer()
+
+    def set_buffer(self):
+        self.buffer = Buffer(buffer_limit=self.buffer_limit)
+
+    def push(self, *docs):
+        try:
+            for doc in docs:
+                if self.dump_json == True:
+                    doc = ujson.dumps(doc, self.ensure_ascii)
+                self.buffer.append(doc)
+                if self.buffer.full:
+                    self.flush()
+        except Exception as e:
+            logger.exception('exc during push')
+            raise e
+
+    def __enter__(self):
         return self
 
-    def read(self):
-        return self.content
-    
-    def set_debuglevel(self, level):
-        pass
-
-
-def http_mock_factory(url):
-    return HttpClientMock(url)
-
-
-def http_conn_factory(url):
-    return http.client.HTTPConnection(url)
-
-
+    def __exit__(self, exc_type, exc_value, traceback):
+        if not exc_value:
+            self.flush()
 
 
 class BaseClickHouse():
@@ -102,6 +128,7 @@ class BaseClickHouse():
     buffer_limit: (int) Буффер записи на таблицу. При достижении будет произведена запись в БД. Default to `1000`.
     loop: (EventLoop, None) При необходимости указать конкретный loop (для асинхронной версии). Default to `None`.
     """
+
     def __init__(self,
                  host=None,
                  port=None,
@@ -113,7 +140,7 @@ class BaseClickHouse():
                  dsn=None,
                  debug=False,
                  loop=None,
-                 buffer_size=1000):
+                 buffer_limit=1000):
 
         self.scheme = 'http'
 
@@ -130,7 +157,7 @@ class BaseClickHouse():
             logger.debug(f"using DSN {dsn_lookup}")
             parts = urllib.parse.urlparse(dsn_lookup)
             # temporary only http supported
-            # self.scheme = parts.scheme
+            self.scheme = parts.scheme
             self.host = parts.hostname
             self.port = parts.port
             self.db = str(parts.path).strip('/')
@@ -144,13 +171,13 @@ class BaseClickHouse():
             self.password = password
 
         self.base_url = f"{self.host}:{self.port}"
-        self.buffer = defaultdict(str)
-        self.buffer_i = defaultdict(int)
-        self.buffer_size = buffer_size
+        self._buffer = defaultdict(Buffer)
+        self._buffer_limit = buffer_limit
         self.timeout = 10
         self.flush_every = 5
         self.loop = loop
         self.session_id = session_id or str(time())
+        self.conn_class = None
 
         # init loop and others
         self._init()
@@ -171,11 +198,6 @@ class BaseClickHouse():
     def discovery(self, records, table):
         return TableDiscovery(records, table, self)
 
-    def flush_all(self):
-        for k, v in self.buffer_i.items():
-            if v > 0:
-                self.flush(k)
-
     def flush(self, table):
         pass
 
@@ -183,16 +205,20 @@ class BaseClickHouse():
         """
         Add document to upload chunk
         """
-        try:
-            if jsonDump == True:
+        if jsonDump == True:
+            try:
                 doc = ujson.dumps(doc, ensure_ascii=False)
-        except Exception as e:
-            logger.exception('exc during push')
-            raise e
-        self.buffer[table] += (doc + '\n')
-        self.buffer_i[table] += 1
-        if self.buffer_i[table] % self.buffer_size == 0:
+            except Exception as e:
+                logger.exception('exc during push')
+                raise e
+
+        self._buffer[table].append(doc)
+        if self._buffer[table].full:
             self.flush(table)
+
+    def flush_all(self):
+        for k in self._buffer:
+            self.flush(k)
 
     @staticmethod
     def set_debug(level=logging.DEBUG):
@@ -205,28 +231,30 @@ class AsyncClickHouse(BaseClickHouse):
         if not self.loop:
             self.loop = asyncio.get_event_loop()
         asyncio.ensure_future(self._timer(), loop=self.loop)
-
-    def flush(self, table):
-        """
-        Flush buffer of table
-        """
-        asyncio.ensure_future(self._do_flush(table))
+        self.conn_class = aiohttp.ClientSession
 
     async def _timer(self):
         while True:
             await asyncio.sleep(self.flush_every)
             self.flush_all()
 
-    async def _do_flush(self, table):
+    def flush(self, table):
+        """
+        Flush buffer of table
+        """
+        buff = self._buffer.get(table)
+        if buff and len(buff):
+            asyncio.ensure_future(self._flush(table))
+
+    async def _flush(self, table):
         """
         Flushing buffer to DB
         """
         try:
             sql_query = f'INSERT INTO {table} FORMAT JSONEachRow'
-            if self.buffer_i[table] > 0:
-                buff = self.buffer[table].encode('utf-8')
-                self.buffer[table] = ''
-                self.buffer_i[table] = 0
+            if self._buffer[table].full:
+                buff = self._buffer[table].encode('utf-8')
+                self._buffer[table] = ''
                 resp_data = await self.run(sql_query, data=buff)
                 return resp_data
         except Exception:
@@ -236,7 +264,7 @@ class AsyncClickHouse(BaseClickHouse):
         """
         Executes SQL code
         """
-        async with aiohttp.ClientSession() as session:
+        async with self.conn_class() as session:
             async with self._make_request(sql_query, session, body=data, method='POST') as response:
                 if response.status == 200:
                     result = decoder(await response.read())
@@ -246,7 +274,7 @@ class AsyncClickHouse(BaseClickHouse):
                     logger.error('wrong http code %s %s', response.status, await response.text())
 
     async def select(self, sql_query, decoder=bytes_decoder):
-        async with aiohttp.ClientSession() as session:
+        async with self.conn_class() as session:
             async with self._make_request(sql_query, session) as response:
                 if response.status == 200:
                     return decoder(await response.read())
@@ -254,7 +282,7 @@ class AsyncClickHouse(BaseClickHouse):
                     logger.error('wrong http code %s %s', response.status, await response.text())
 
     async def objects_stream(self, sql_query, decoder=json_decoder, format=JSONEACHROW):
-        async with aiohttp.ClientSession() as session:
+        async with self.conn_class() as session:
             async with self._make_request(sql_query + format_format(format), session) as response:
                 if response.status == 200:
                     async for line in response.content:
@@ -262,7 +290,6 @@ class AsyncClickHouse(BaseClickHouse):
                             yield decoder(line)
                 else:
                     logger.error('wrong http code %s %s', response.status, await response.text())
-
 
     def _make_request(self,
                       sql_query,
@@ -284,31 +311,40 @@ class AsyncClickHouse(BaseClickHouse):
 class ClickHouse(BaseClickHouse):
 
     def _init(self):
-        self.conn_factory = http_conn_factory
+        self.conn_class = http.client.HTTPSConnection if self.scheme == 'https' else http.client.HTTPConnection
 
-    def flush_all(self):
-        for k in self.buffer:
-            self.flush(k)
+    def batch(self, table):
+        return WriterContext(ch=self, table=table)
 
     def flush(self, table):
         """
         Flushing buffer to DB
         """
-        if table in self.buffer and self.buffer_i[table] > 0: 
-            sql_query = f'INSERT INTO {table} FORMAT JSONEachRow'
-            resp_data = self.run(sql_query, self.buffer[table])
-            self.buffer[table] = ''
-            self.buffer_i[table] = 0
-            return resp_data
+        buff = self._buffer.get(table)
+        if buff and len(buff):
+            buff.prepare()
+            result = self._flush(table, buff)
+            self._buffer[table] = Buffer()
+            return result
+
+    def _flush(self, table, buff: io.BytesIO):
+        sql_query = f'INSERT INTO {table} FORMAT JSONEachRow'
+        result = self._make_request(sql_query, body=buff.buffer, method='POST')
+        if result.code != 200:
+            return result
+        if result != '':
+            return result
 
     def run(self, sql_query, data=None, decoder=bytes_decoder):
+        if data:
+            data = data.encode('utf-8')
         response = self._make_request(sql_query, body=data, method='POST')
         if response.code != 200:
             return response
         result = decoder(response.read())
         if result != '':
             return result
-    
+
     def select(self, sql_query, decoder=bytes_decoder):
         response = self._make_request(sql_query)
         return decoder(response.read())
@@ -321,21 +357,26 @@ class ClickHouse(BaseClickHouse):
                 yield decoder(line)
             else:
                 break
-    
+
     def _make_request(self, sql_query, body=None, method=None):
         logger.debug('Conn base url: %s', self.base_url)
-        conn = self.conn_factory(self.base_url)
+        conn = self.conn_class(self.base_url)
+
         if logger.level == logging.DEBUG:
             conn.set_debuglevel(logger.level)
 
-        query_str = urllib.parse.urlencode(self._build_params(sql_query), encoding='utf-8')
+        query_str = urllib.parse.urlencode(
+            self._build_params(sql_query), encoding='utf-8')
         logger.debug('Query string: %s', query_str)
+
         if not method:
             method = 'POST' if body else 'GET'
-        if body:
-            body = body.encode('utf-8')
+
+        # print(body.getvalue())
+
         conn.request(method, f"/?{query_str}", body=body)
         response = conn.getresponse()
+
         if response.status != 200:
             content = response.read()
             logger.error('Wrong HTTP statusCode %s. Return: %s',
@@ -344,4 +385,3 @@ class ClickHouse(BaseClickHouse):
         logger.debug(
             f'Server response status: {response.status}, content-length: {response.length}')
         return response
-

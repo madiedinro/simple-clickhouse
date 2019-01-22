@@ -45,7 +45,7 @@ class DeltaGenerator:
         
         def negative_row(row):
             for m in metrics:
-                row[m] = -row[m]
+                row[m] = -1 * def_metric(m, row)
             return row
         
         for row in data:
