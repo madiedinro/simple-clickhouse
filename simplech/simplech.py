@@ -1,8 +1,5 @@
-
-
 from collections import defaultdict
 from time import time
-import logging
 import os
 import io
 import http.client
@@ -10,22 +7,16 @@ import urllib.parse
 import ujson
 import asyncio
 import aiohttp
+from . import logging, logger
+from .write_context import Buffer, WriterContext
 from . import TableDiscovery
 from . import DeltaGenerator
 
 
-LOGGER_FORMAT = '%(asctime)s %(levelname)s %(message)s'
 FORMAT_JSONEACHROW = ' FORMAT JSONEachRow'
 FORMAT = 'FORMAT'
 JSONEACHROW = 'JSONEachRow'
 
-
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.WARN)
-log_formatter = logging.Formatter(LOGGER_FORMAT)
-log_handler = logging.StreamHandler()
-log_handler.setFormatter(log_formatter)
-logger.addHandler(log_handler)
 
 
 def format_format(val):
@@ -50,63 +41,6 @@ decoders = {
     'bytes': bytes_decoder
 }
 
-
-
-class Buffer:
-    def __init__(self, buffer_limit=5000):
-        self.buffer_limit = buffer_limit
-        self.buffer = io.BytesIO()
-        self.counter = 0
-        self.full = False
-
-    def __len__(self):
-        return self.counter
-
-    def prepare(self):
-        self.buffer.seek(0)
-
-    def append(self, rec):
-        self.buffer.write((rec + '\n').encode())
-        self.counter += 1
-        if self.counter >= self.buffer_limit:
-            self.full = True
-
-
-class WriterContext:
-    def __init__(self, ch, table, dump_json=True, ensure_ascii=False, buffer_limit=5000):
-        self.ch = ch
-        self.ensure_ascii = ensure_ascii
-        self.dump_json = dump_json
-        self.buffer_limit = buffer_limit
-        self.table = table
-        self.set_buffer()
-
-    def flush(self):
-        self.buffer.prepare()
-        self.ch._flush(self.table, self.buffer)
-        self.set_buffer()
-
-    def set_buffer(self):
-        self.buffer = Buffer(buffer_limit=self.buffer_limit)
-
-    def push(self, *docs):
-        try:
-            for doc in docs:
-                if self.dump_json == True:
-                    doc = ujson.dumps(doc, self.ensure_ascii)
-                self.buffer.append(doc)
-                if self.buffer.full:
-                    self.flush()
-        except Exception as e:
-            logger.exception('exc during push')
-            raise e
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc_value, traceback):
-        if not exc_value:
-            self.flush()
 
 
 class BaseClickHouse():
@@ -328,7 +262,7 @@ class ClickHouse(BaseClickHouse):
     def _init(self):
         self.conn_class = http.client.HTTPSConnection if self.scheme == 'https' else http.client.HTTPConnection
 
-    def batch(self, table):
+    def table(self, table):
         return WriterContext(ch=self, table=table)
 
     def flush(self, table):

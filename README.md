@@ -104,16 +104,18 @@ b'{"browser_if": [0, 2],"browser_sr_asp": 4000,"browser_sr_avail_h": 740,"browse
 ''
 ```
 
-### Batch writing
+### Microbatch writing using context manager
+
 
 В simplech запись объекта производится при помощи метода `push`, но непосредственно запись
 будет произведена при достижении лимита буффера, устанавливаемого параметром конструктора `buffer_limit`.
 
+**new**
 
 ```python
-with ch.batch('tablename') as b:
-    for deal in deals:
-        b.push(deal)
+with ch.table('tablename') as w:
+    for rec in recs:
+        w.push(rec)
 ```
 
 On exit context all data will be flushed.
@@ -228,6 +230,12 @@ td.date('date').metrics('sale').idx('account_id', 'date')
 - [ ] Support all ClickHouse types, especially Arrays
 - [ ] Discovery by Table structure
 
+
+```python
+with td.table('tablename') as w:
+    for rec in recs:
+        w.push(rec)
+```
 
 
 ### Difference handling. Be careful currently it Proof of concept

@@ -5,7 +5,7 @@ import pytest
 from time import sleep
 from itertools import count
 from simplech import TableDiscovery, ClickHouse, DeltaGenerator, AsyncClickHouse
-from simplech.mock import HttpClientMock, AsyncHttpClientMock
+from simplech.mock import HttpClientMock, AsyncHttpClientMock, create_factory
 import datetime
 import asyncio
 
@@ -43,7 +43,7 @@ set3 = [
 def test_ch_delta_iter():
 
     ch = ClickHouse()
-    ch.conn_class = HttpClientMock
+    ch.conn_class = create_factory()
 
     ch.run('CREATE TABLE IF NOT EXISTS test1 (name String) ENGINE = Log()')
     upd = [{'name': 'lalala', 'value': 1}, {'name': 'bababa', 'value': 2}, {'name': 'nanana', 'value': 3}]
@@ -67,9 +67,8 @@ def test_ch_delta_iter():
 
 def test_ch_push():
 
-
     ch = ClickHouse()
-    ch.conn_class = HttpClientMock
+    ch.conn_class = create_factory()
 
     ch.run('CREATE TABLE IF NOT EXISTS test1 (name String) ENGINE = Log()')
     ch.push('textxx', {'name': 'lalala'})
@@ -86,7 +85,7 @@ def test_ch_push():
 async def async_ch_differ():
 
     ch = AsyncClickHouse()
-    ch.conn_class = AsyncHttpClientMock
+    ch.conn_class = create_factory(async_mode=True)
 
     await ch.run('CREATE TABLE IF NOT EXISTS test1 (name String) ENGINE = Log()')
     upd = [{'name': 'lalala', 'value': 1}, {'name': 'bababa', 'value': 2}, {'name': 'nanana', 'value': 3}]
@@ -119,7 +118,7 @@ def test_async_ch_differ():
 async def async_ch_push():
 
     ch = AsyncClickHouse()
-    ch.conn_class = AsyncHttpClientMock
+    ch.conn_class = create_factory(async_mode=True)
 
     await ch.run('CREATE TABLE IF NOT EXISTS test1 (name String) ENGINE = Log()')
     ch.push('textxx', {'name': 'lalala'})
@@ -151,9 +150,9 @@ def test_async_ch_push():
 def test_ch_context_manager():
 
     ch = ClickHouse()
-    ch.conn_class = HttpClientMock
+    ch.conn_class = create_factory()
 
     ch.run('CREATE TABLE IF NOT EXISTS test1 (name String) ENGINE = Log()')
-    with ch.batch('test1') as b:
+    with ch.table('test1') as b:
         b.push({'name': 'lalala'})
 

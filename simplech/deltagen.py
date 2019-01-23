@@ -1,6 +1,32 @@
 import ujson
 
 
+class DeltaRunner:
+    def __init__(self, ch, discovery, **kwargs):
+        self.kwargs = kwargs
+        self.ch = ch
+        self.disco = discovery
+
+    def __enter__(self):
+        self.gen = DeltaGenerator(ch=self.ch, discovery=self.disco, **self.kwargs)
+        return self.gen
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        if not exc_value:
+            self.ch.flush(self.disco.table)
+
+    async def __aenter__(self):
+        self.gen = DeltaGenerator(ch=self.ch, discovery=self.disco, **self.kwargs)
+        return self.gen
+
+    async def __aexit__(self, exc_type, exc_value, traceback):
+        if not exc_value:
+            coro = self.ch.flush(self.disco.table)
+            if coro:
+                await coro
+
+
+
 class DeltaGenerator:
     def __init__(self, discovery, ch, d1, d2, data, dimensions_criteria=None):
         

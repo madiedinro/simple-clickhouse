@@ -5,7 +5,7 @@ import datetime
 from collections import defaultdict, Counter
 from typing import List, Dict, Mapping, Set, Callable, Any
 from pydantic import BaseModel
-from .deltagen import DeltaGenerator
+from .deltagen import DeltaGenerator, DeltaRunner
 from .helpers import cast_string, is_date, max_type
 from . import types as cht
 
@@ -18,41 +18,8 @@ PYTOCH_MAP = {
 }
 
 
-def final_choose(v_set):
-    lst = list(v_set)
-    if len(lst) == 0:
-        return
-    elif len(lst) == 1:
-        return lst[0]
-    else:
-        mapped = [cht.TYPES_PRIORITY[x.__name__] for x in lst]
-        maxi = mapped.index(max(mapped))
-        return lst[maxi]
-
-
-class DeltaRunner:
-    def __init__(self, ch, discovery, **kwargs):
-        self.kwargs = kwargs
-        self.ch = ch
-        self.disco = discovery
-
-    def __enter__(self):
-        self.gen = DeltaGenerator(ch=self.ch, discovery=self.disco, **self.kwargs)
-        return self.gen
-
-    def __exit__(self, exc_type, exc_value, traceback):
-        if not exc_value:
-            self.ch.flush(self.disco.table)
-
-    async def __aenter__(self):
-        self.gen = DeltaGenerator(ch=self.ch, discovery=self.disco, **self.kwargs)
-        return self.gen
-
-    async def __aexit__(self, exc_type, exc_value, traceback):
-        if not exc_value:
-            coro = self.ch.flush(self.disco.table)
-            if coro:
-                await coro
+class Guesstimator:
+    pass
 
 
 class TableDescription(BaseModel):
@@ -65,11 +32,6 @@ class TableDescription(BaseModel):
     metrics: Mapping[str, Any] = dict()
     dimensions_set: Set[str] = set()
     dimensions: Mapping[str, Any] = dict()
-
-
-class Guesstimator:
-    pass
-
 
 
 class TableDiscovery:

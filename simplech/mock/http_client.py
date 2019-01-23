@@ -4,7 +4,22 @@ import asyncio
 import json as jsonlib
 
 
-class AsyncContent:
+
+class MockStorage:
+
+    def __init__(self):
+        # print('--- creating storage ---')
+        self.content = b''
+        self.buff = io.BytesIO()
+
+    def add(self, data):
+        self.buff.write(data)
+        self.content
+        
+    def get_buff(self):
+        return self.buff
+
+class MockAsyncContent:
     def __init__(self, content):
         self.content = content
         self.buff = io.BytesIO(content)
@@ -26,22 +41,23 @@ class HttpClientMock:
     buff = io.BytesIO()
     content = b''
 
-    def __init__(self, url):
-        self.url = url
-        self.items = []
+    def __init__(self, mock_store=None):
+        self.mock_store = mock_store
         self.last_method = None
     
     def process_select(self):
-        self.buff = io.BytesIO(self.__class__.content)
-        self.buff.seek(0)
-
+        self.mock_store.buff.seek(0)
+    
     def request(self, method, url, body=None, **kwargs):
         u = urlparse(url)
         params = {**dict(parse_qsl(u.query)), **kwargs.get('params', {}) }
-        print(u)
+        
         q = params.get('query')
         self.last_method = method.lower()
         self.last_query = q.lower()
+
+        if not q:
+            print('WARNING! not query')
         
         json = kwargs.get('json')
         if json:
@@ -49,15 +65,12 @@ class HttpClientMock:
         data = kwargs.get('data')
         if data:
             body = data
-        if self.last_method == 'post' and q and self.last_query.startswith('create') and body:
-            self.__class__.content = b''
-
+        # print(q, body)
         if self.last_method == 'post' and q and self.last_query.startswith('insert') and body:
             if isinstance(body, io.BytesIO):
-                self.__class__.content += body.getvalue()
-            else:
-                self.__class__.content += body
-
+                body = body.getvalue()
+            self.mock_store.buff.write(body)
+            print('writing', body)
         if self.last_method == 'get' and q and self.last_query.startswith('select'):
             self.process_select()
         return self
@@ -66,17 +79,16 @@ class HttpClientMock:
         return self
 
     def read(self):
-        if self.last_method == 'get' and self.last_query and self.last_query.startswith('select'):
-            r = self.content
-        else:
-            r = b''
-        print(r)
+        # if self.last_method == 'get' and self.last_query and self.last_query.startswith('select'):
+        self.mock_store.buff.seek(0, 0)
+        r = self.mock_store.buff.getvalue()
+        print('returning', r)
+        # else:
+            # r = b''
         return r
 
     def readline(self):
-        print(self.content)
-        r = self.buff.readline()
-        print(r)
+        r = self.mock_store.buff.readline()
         return r
 
     def set_debuglevel(self, level):
@@ -84,13 +96,10 @@ class HttpClientMock:
 
 
 class AsyncHttpClientMock(HttpClientMock):
-    content = b''
-    def __init__(self):
-        pass
 
     def process_select(self):
-        self.content = AsyncContent(self.__class__.content)
-
+        super().process_select()
+        self.content = MockAsyncContent(self.mock_store.buff.getvalue())
 
     def _make_request(self, *args, **kwargs):
         return self
@@ -109,3 +118,16 @@ class AsyncHttpClientMock(HttpClientMock):
 
     async def text(self):
         return super().read().decode()
+
+
+def create_factory(async_mode=False):
+
+    store = MockStorage()
+
+    def factory(*args, **kwargs):
+        if async_mode == True:
+            return AsyncHttpClientMock( mock_store=store)
+        else:
+            return HttpClientMock( mock_store=store)
+    
+    return factory

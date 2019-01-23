@@ -5,13 +5,14 @@ import pytest
 from time import sleep
 from itertools import count
 from simplech import TableDiscovery, ClickHouse, DeltaGenerator, AsyncClickHouse
-from simplech.discovery import final_choose, cast_string
-from simplech.mock import HttpClientMock, AsyncHttpClientMock
+from simplech.discovery import cast_string
+from simplech.mock import create_factory
 from simplech.helpers import max_type
 import datetime
 import asyncio
 from collections import Counter
 from simplech.types import *
+
 
 set1 = [
     {'date': '2018-12-31', 'ga_channelGrouping': 'Organic Search', 'ga_dateHourMinute': '201812311517', 'ga_dimension2': '128983921.1546258642', 'ga_fullReferrer': 'google', 'ga_newUsers': '1', 'ga_pageviews': '1', 'ga_sessionCount': '1',
@@ -41,11 +42,13 @@ set3 = [
         'id': '1795469', 'sale': '4000', 'uid': '6450101900745375746'},
 ]
 
+loop = asyncio.get_event_loop()
+
 
 def test_ch_run():
 
     ch = ClickHouse()
-    ch.conn_class = HttpClientMock
+    ch.conn_class = create_factory()
     ch.run('SELECT')
 
 
@@ -122,6 +125,7 @@ def test_wrap_sync():
 def test_simplech_wrapping():
 
     ch = ClickHouse()
+    ch.conn_class = create_factory()
     td = ch.discover('ga_stat', set1)
     td.date(
         'date').idx('ga_dimension2',
@@ -150,22 +154,49 @@ def test_dimensions():
 def test_td_context_manager():
 
     ch = ClickHouse()
+    ch.conn_class = create_factory()
     td = ch.discover('ga_stat', set3).date('date').idx('date').metrics('sale')
 
     d1 = '2019-01-10'
     d2 = '2019-01-13'
 
     with td.difference(d1, d2, set3) as delta:
-
-        assert type(delta) == DeltaGenerator
         assert delta.d1 == d1
         assert delta.d2 == d2
         assert delta.disco == td
         assert td.ch == delta.ch
-        # for row in delta.run(set2):
-        # print(row)
+        for row in delta:
+            td.push(row)
+
+    recs = [*ch.objects_stream('SELECT * FROM textxx')]
+
+    assert len(recs) == 3
     assert td.tc.idx == ['date']
     assert 'ga_stat' == td.table
+
+
+
+async def td_context_manager_async():
+    ch = AsyncClickHouse()
+    ch.conn_class = create_factory(async_mode=True)
+    td = ch.discover('ga_stat', set3).date('date').idx('date').metrics('sale')
+
+    d1 = '2019-01-10'
+    d2 = '2019-01-13'
+
+    async with td.difference(d1, d2, set3) as d:
+        async for row in d:
+            td.push(row)
+
+    recs = []
+    async for rec in ch.objects_stream('SELECT * FROM textxx'):
+        recs.append(rec)
+
+    print(recs)
+    assert len(recs) == 3
+
+def test_td_context_manager_async():
+    loop.run_until_complete(td_context_manager_async())
 
 
 def test_final_type():
