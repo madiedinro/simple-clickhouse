@@ -114,7 +114,6 @@ def test_async_ch_differ():
     loop.run_until_complete(async_ch_differ())
 
 
-
 async def async_ch_push():
 
     ch = AsyncClickHouse()
