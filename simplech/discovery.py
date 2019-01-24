@@ -206,19 +206,20 @@ class TableDiscovery:
             return self.ch.run(query)
         return query
 
-    def pycode(self):
+    def pycode(self, return_dimensions=True):
         """
         """
         date = ', '.join([f"'{d}'" for d in [self.date_field] if d != None])
         idx = ', '.join([f"'{i}'" for i in self.tc.idx if i != None])
         metrics = ', '.join([f"'{k}'" for k in self.get_metrics()])
         dimensions = ', '.join([f"'{k}'" for k in self.get_dimensions()])
-        cols = {k: t.__name__ for k, t in self.columns.items()}
-        code = f"td = ch.discover('{self.table}', columns={cols}"
-        code += f").metrics(*{metrics}"
-        code += f").dimensions(*{dimensions}"
-        code += f").date(*{date}"
-        code += f").idx(*{idx})"
+        cols = '{' + ', '.join([f"\n        '{k}': '{t.__name__ }'" for k, t in self.columns.items()]) + '}'
+        code = f"td_{self.table} = ch.discover('{self.table}', columns={cols})\\\n"
+        code += f"    .metrics({metrics})\\\n"
+        if return_dimensions:
+            code += f"    .dimensions({dimensions})\\\n"
+        code += f"    .date({date})\\\n"
+        code += f"    .idx({idx})\n"
         return code
 
 
