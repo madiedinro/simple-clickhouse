@@ -185,7 +185,22 @@ class AsyncClickHouse(BaseClickHouse):
         """
         buff = self._buffer.get(table)
         if buff and len(buff):
-            return asyncio.ensure_future(self._flush(table))
+            return asyncio.ensure_future(self._flush(table, buff))
+               
+    async def _flush(self, table, buff: io.BytesIO):
+        """
+        Flushing buffer to DB
+        """
+        try:
+            sql_query = f'INSERT INTO {table} FORMAT JSONEachRow'
+            logger.debug(f'flushing table {table} query {sql_query}')
+            if buff and len(self._buffer[table]):
+                self._buffer[table].prepare()
+                self._buffer[table] = Buffer()
+                resp_data = await self.run(sql_query, data=buff.buffer)
+                return resp_data
+        except Exception:
+            logger.exception('ch ex')
 
     def flush_all(self):
         tasks = []
@@ -194,22 +209,7 @@ class AsyncClickHouse(BaseClickHouse):
             if fut:
                 tasks.append(fut)
         return asyncio.gather(*tasks)
-        
-    async def _flush(self, table):
-        """
-        Flushing buffer to DB
-        """
-        try:
-            sql_query = f'INSERT INTO {table} FORMAT JSONEachRow'
-            logger.debug(f'flushing table {table} query {sql_query}')
-            buff = self._buffer[table]
-            if buff and len(self._buffer[table]):
-                self._buffer[table] = Buffer()
-                resp_data = await self.run(sql_query, data=buff.buffer.getvalue())
-                return resp_data
-        except Exception:
-            logger.exception('ch ex')
-
+     
     async def run(self, sql_query, data=None, decoder=bytes_decoder):
         """
         Executes SQL code

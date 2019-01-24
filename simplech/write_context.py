@@ -33,8 +33,9 @@ class WriterContext:
 
     def flush(self):
         self.buffer.prepare()
-        self.ch._flush(self.table, self.buffer)
+        buff = self.buffer
         self.set_buffer()
+        return self.ch._flush(self.table, buff)
 
     def set_buffer(self):
         self.buffer = Buffer(buffer_limit=self.buffer_limit)
