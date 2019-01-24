@@ -39,6 +39,8 @@ class TableDiscovery:
     def __init__(self, table, ch=None, records=None, columns=None, **kwargs):
         """
         arguments:
+        table - table name
+        ch - ClikHouse / AsyncClickHouse instance
         records - one record (dict) or list of records (list[dict])
         limit - discover by only x records
         """
@@ -47,7 +49,11 @@ class TableDiscovery:
         self.table = table
         self.tc = TableDescription()
         self.fillfuled = False
-        
+        self._stat = {
+            'push': 0,
+            'used_rows': 0
+        }
+
         if records:
             self.tc.columns = self.discover_by_data(records, **kwargs)
             # By default all cols are dimensions
@@ -57,10 +63,10 @@ class TableDiscovery:
         if columns:
             self.tc.columns = self.process_provided_config(columns)
 
-        self.stat = {
-            'push': 0
-        }
 
+    @property
+    def stat(self):
+        return self._stat
 
     @property
     def date_field(self):
@@ -94,15 +100,14 @@ class TableDiscovery:
                     t = cast_string(v)
                 cols[k] = cols.get(k, Counter())
                 cols[k].update([t.__name__])
-            if i == limit:
-                break
         if i > 0:
             self.fillfuled = True
-
+            self._stat['used_rows'] = i
+        
         return {cname: getattr(cht, max_type(counter)) for cname, counter in cols.items()}
 
     def push(self, row):
-        self.stat['push'] += 1
+        self._stat['push'] += 1
         return self.ch.push(self.table, row)
 
     def difference(self, d1, d2, data, dimensions_criteria=None):

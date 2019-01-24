@@ -45,6 +45,16 @@ class DeltaGenerator:
         self.handled_keys = []
         self.recs_map = dict()
         self.dimensions_criteria = dimensions_criteria
+        self._stat = {
+            'update': 0,
+            'remove': 0,
+            'create': 0,
+            'unchanged': 0
+        }
+
+    @property
+    def stat(self):
+        return self._stat
 
     def push(self, row):
         return self.ch.push(self.disco.table, row)
@@ -102,10 +112,15 @@ class DeltaGenerator:
             self.handled_keys.append(key)
             delta = self.metrics_diff(metrics, new_row, row)
             if delta:
+                self._stat['update'] += 1
                 correct_row = new_row.copy()
                 correct_row.update(delta)
                 return correct_row
+            else:
+                self._stat['unchanged'] += 1
+        # Removing existing record
         else:
+            self._stat['remove'] += 1
             rm_row = self.negative_row(metrics, row)
             return rm_row
 
@@ -116,12 +131,15 @@ class DeltaGenerator:
             self.recs_map[self.dim_key(dimensions, row)] = row
         q = self.prepare_query(dimensions, metrics)
 
+        # fetch rows from database and compare with received
         for row in self.ch.objects_stream(q):
             rec = self.handle_record(row, dimensions, metrics)
             if rec:
-                yield
+                yield rec
 
+        # new rows
         for new_key in set(self.recs_map.keys()) - set(self.handled_keys):
+            self._stat['create'] += 1
             row = self.recs_map.get(new_key)
             yield row 
     
@@ -132,11 +150,13 @@ class DeltaGenerator:
             self.recs_map[self.dim_key(dimensions, row)] = row
         q = self.prepare_query(dimensions, metrics)
 
+        # fetch rows from database and compare with received
         async for row in self.ch.objects_stream(q):
             rec = self.handle_record(row, dimensions, metrics)
             if rec:
-                yield
+                yield rec
         
+        # new rows
         for new_key in set(self.recs_map.keys()) - set(self.handled_keys):
             row = self.recs_map.get(new_key)
             yield row 
