@@ -205,7 +205,7 @@ class AsyncClickHouse(BaseClickHouse):
             buff = self._buffer[table]
             if buff and len(self._buffer[table]):
                 self._buffer[table] = Buffer()
-                resp_data = await self.run(sql_query, data=buff.buffer)
+                resp_data = await self.run(sql_query, data=buff.buffer.getvalue())
                 return resp_data
         except Exception:
             logger.exception('ch ex')
