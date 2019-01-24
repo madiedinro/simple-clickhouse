@@ -269,6 +269,7 @@ class ClickHouse(BaseClickHouse):
         """
         Flushing buffer to DB
         """
+        logger.debug('called flush')
         buff = self._buffer.get(table)
         if buff and len(buff):
             buff.prepare()
@@ -278,6 +279,7 @@ class ClickHouse(BaseClickHouse):
 
     def _flush(self, table, buff: io.BytesIO):
         sql_query = f'INSERT INTO {table} FORMAT JSONEachRow'
+        logger.debug(f'flushing table {table} query {sql_query}')
         result = self._make_request(sql_query, body=buff.buffer, method='POST')
         if result.code != 200:
             return result
@@ -320,8 +322,6 @@ class ClickHouse(BaseClickHouse):
 
         if not method:
             method = 'POST' if body else 'GET'
-
-        # print(body.getvalue())
 
         conn.request(method, f"/?{query_str}", body=body)
         response = conn.getresponse()
