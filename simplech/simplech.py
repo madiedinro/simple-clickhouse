@@ -201,6 +201,7 @@ class AsyncClickHouse(BaseClickHouse):
         """
         try:
             sql_query = f'INSERT INTO {table} FORMAT JSONEachRow'
+            logger.debug(f'flushing table {table} query {sql_query}')
             buff = self._buffer[table]
             if buff and len(self._buffer[table]):
                 self._buffer[table] = Buffer()
@@ -215,6 +216,7 @@ class AsyncClickHouse(BaseClickHouse):
         """
         async with self.conn_class() as session:
             async with self._make_request(sql_query, session, body=data, method='POST') as response:
+                logger.debug(f'respopnse with status code = {response.status}')
                 if response.status == 200:
                     result = decoder(await response.read())
                     if result != '':
@@ -225,6 +227,7 @@ class AsyncClickHouse(BaseClickHouse):
     async def select(self, sql_query, decoder=bytes_decoder):
         async with self.conn_class() as session:
             async with self._make_request(sql_query, session) as response:
+                logger.debug(f'respopnse with status code = {response.status}')
                 if response.status == 200:
                     return decoder(await response.read())
                 else:
@@ -233,6 +236,7 @@ class AsyncClickHouse(BaseClickHouse):
     async def objects_stream(self, sql_query, decoder=json_decoder, format=JSONEACHROW):
         async with self.conn_class() as session:
             async with self._make_request(sql_query + format_format(format), session) as response:
+                logger.debug(f'respopnse with status code = {response.status}')
                 if response.status == 200:
                     async for line in response.content:
                         if line:
