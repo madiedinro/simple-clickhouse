@@ -1,1 +1,0 @@
-from .simplech import ClickHouse

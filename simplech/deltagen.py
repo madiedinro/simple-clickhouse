@@ -1,5 +1,5 @@
 import ujson
-
+from .log import logger
 
 class DeltaRunner:
     def __init__(self, ch, discovery, **kwargs):

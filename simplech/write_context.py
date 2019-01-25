@@ -1,6 +1,6 @@
 import io
 import ujson
-from . import logger 
+from .log import logger 
 
 class Buffer:
     def __init__(self, buffer_limit=5000):

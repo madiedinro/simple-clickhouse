@@ -7,7 +7,7 @@ import urllib.parse
 import ujson
 import asyncio
 import aiohttp
-from . import logging, logger
+from .log import logging, logger
 from .write_context import Buffer, WriterContext
 from . import TableDiscovery
 from . import DeltaGenerator

@@ -8,6 +8,7 @@ from pydantic import BaseModel
 from .deltagen import DeltaGenerator, DeltaRunner
 from .helpers import cast_string, is_date, max_type
 from . import types as cht
+from .log import logger
 
 PYTOCH_MAP = {
     str: cht.String,
