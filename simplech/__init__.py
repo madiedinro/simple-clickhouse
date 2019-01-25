@@ -1,6 +1,6 @@
 import logging
 
-
+__VERSION__ = '0.16.0'
 
 LOGGER_FORMAT = '%(asctime)s %(levelname)s %(message)s'
 
