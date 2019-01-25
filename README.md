@@ -19,12 +19,19 @@ pip install -U git+https://github.com/madiedinro/simple-clickhouse.git
 
 ## Connection params
 
-Has a two versins: async `AsyncClickHouse` and sync `ClickHouse`.
+Comes with async version `AsyncClickHouse` and sync `ClickHouse`.
 
+При использовании в Rockstat, параметры указывать не требуется. Они подставляются автоматически из переменных окружения.
+
+```python
+from simplech import AsyncClickHouse
+ch = AsyncClickHouse()
+```
 
 - **host:** [default: `127.0.0.1`] Хост с clickhouse
 - **port:** [default: `8123`]  Порт подключения
 - **db:** [default: `default`]  Название базы данных
+- **scheme:** [default: `http`]  Протокол http/https
 - **user:** [default: `default`]  Имя пользователя
 - **password:** [default: `""`]  Пароль
 - **session:** [default: `False`] Использовать сессию. Идентификатор сессии генерируется автоматически
@@ -44,12 +51,14 @@ Has a two versins: async `AsyncClickHouse` and sync `ClickHouse`.
 ### Selecting without decoding
 
 ```python
->>> from simplech import AsyncClickHouse
->>> ch = AsyncClickHouse(host='localhost', user='default')
->>> print(await ch.select('SHOW DATABASES'))
+from simplech import AsyncClickHouse
 
-default
-system
+ch = AsyncClickHouse(host='localhost', user='default')
+
+print(await ch.select('SHOW DATABASES'))
+
+[Out]:  default
+        system
 ```
 
 ### Selecting as dict's steam
@@ -58,27 +67,29 @@ system
 К запросу автоматически будет добавлено `FORMAT JSONEachRow`.
 
 ```python
->>> async for obj in ch.objects_stream('SELECT * from events'):
->>>     print(obj)
+async for obj in ch.objects_stream('SELECT * FROM events'):
+    print(obj)
 
-{'browser_if': [0, 2],
- 'browser_sr_asp': 4000,
- 'browser_sr_avail_h': 740,
- 'browser_sr_avail_w': 360,
- 'browser_sr_oAngle': 0
- #...
-}
-#...
+[Out]:  {
+            'browser_if': [0, 2],
+            'browser_sr_asp': 4000,
+            'browser_sr_avail_h': 740,
+            'browser_sr_avail_w': 360,
+            'browser_sr_oAngle': 0
+            ...
+        }
+        ...
 ```
 
 #### Disabling decoding for streaming data
 
 ```python
->>> from simplech import bytes_decoder
->>> async for obj in ch.objects_stream('SELECT * from events', decoder=none_decoder):
->>>     print(obj)
+from simplech import bytes_decoder
 
-b'{"browser_if": [0, 2],"browser_sr_asp": 4000,"browser_sr_avail_h": 740,"browser_sr_avail_w": 360,"browser_sr_oAngle": 0}'
+async for obj in ch.objects_stream('SELECT * from events', decoder=none_decoder):
+     print(obj)
+
+[Out]: b'{"browser_if": [0, 2],"browser_sr_asp": 4000,"browser_sr_avail_h": 740,"browser_sr_avail_w": 360,"browser_sr_oAngle": 0}'
 #...
 ```
 
@@ -89,23 +100,16 @@ b'{"browser_if": [0, 2],"browser_sr_asp": 4000,"browser_sr_avail_h": 740,"browse
 Для для записи данных, управления БД и других операция (не select) слудует использовать метод `run`
 
 ```python
->>> await ch.run('CREATE TABLE my_table (name String, num UInt64) ENGINE=Log ')
-
-''
+await ch.run('CREATE TABLE my_table (name String, num UInt64) ENGINE=Log ')
 ```
 
-Если все хорошо, сервер возвращает пустую строку `''`.
-
-Можно использовать для записи данных в произвольном формате.
+Можно использовать для "ручной" записи данных
 
 ```python
 >>> await ch.run('INSERT INTO my_table (name, num) VALUES("myname", 7)')
-
-''
 ```
 
 ### Microbatch writing using context manager
-
 
 В simplech запись объекта производится при помощи метода `push`, но непосредственно запись
 будет произведена при достижении лимита буффера, устанавливаемого параметром конструктора `buffer_limit`.
@@ -129,21 +133,52 @@ ch.flush('my_table')
 
 await ch.select('SELECT count() FROM my_table')
 
-1499
+[Out]: 1499
 ```
 
 Доступен метод `flush_all()`, он производит запись всех буфферов.
 
 ```python
->>> ch.push('my_table', {'name': 'hux', 'num': 1})
->>> ch.push('other_table', my_other_obj)
->>> ch.flush_all()
+ch.push('my_table', {'name': 'hux', 'num': 1})
+ch.push('other_table', my_other_obj)
+# or
+ch.flush_all()
 ```
-
 
 ## Some Simpe Magick
 
 ### Schema detection
+
+To create instance of TableDiscovery call
+
+```
+ch.discover(table, records=None, columns=None)
+``` 
+
+- records is a list with records
+- columnts is a dict where key is table columnt name / field name; value is the field data type.
+
+One of records or columns should be filled.
+
+#### ch.discover('table_name', records=[...]) 
+
+-> TableDiscovery instanse
+
+
+
+#### ch.discover('table', columns={...})
+
+```python
+td_deals = ch.discover('deals', columns={
+    'id': 'Int64', 
+    'uid': 'Int64', 
+    'cid': 'String', 
+    'sale': 'Int64', 
+    'date': 'Date', 
+    'date_time': 'DateTime', 
+    'account_id': 'Int64'
+})
+```
 
 Detect using present data
 
@@ -152,6 +187,11 @@ ch = ClickHouse()
 td = ch.discovery(deals, 'deals')
 td.date('date').idx('account_id', 'date').metrics('sale')
 
+```
+
+#### TableDiscovery.merge_tree()
+
+```
 ch.merge_tree()
 ```
 
@@ -169,11 +209,35 @@ CREATE TABLE IF NOT EXISTS `deals` (
 ) ENGINE MergeTree() PARTITION BY toYYYYMM(`date`) ORDER BY (`account_id`, `date`) SETTINGS index_granularity=8192
 ```
 
-#### ch.discover(data, 'table_name') 
 
--> TableDiscovery instanse
+#### Code generationm
 
-#### Manual set datatypes
+Next times after use table auto discovery you shoud use fixed layout. To to this easy try `TableDiscovery.pycode()`
+
+```python
+code = td.pycode()
+print(code)
+```
+
+will be returned
+
+```
+td = ch.discover('deals', columns={
+    'id': 'Int64', 
+    'uid': 'Int64', 
+    'cid': 'String', 
+    'sale': 'Int64', 
+    'date': 'Date', 
+    'date_time': 'DateTime', 
+    'account_id': 'Int64'
+})\
+.metrics('sale')\
+.dimensions('date_time', 'account_id', 'cid', 'uid', 'id', 'date')\
+.date('date')\
+.idx('account_id', 'date')
+```
+
+#### Correct detected / implicit set data-types
 
 `TableDiscovery.int(*args)` set columnts to int
 
@@ -228,7 +292,7 @@ td.date('date').metrics('sale').idx('account_id', 'date')
 #### Discovery TODO
 
 - [ ] Support all ClickHouse types, especially Arrays
-- [ ] Discovery by Table structure
+- [ ] Discovery by DB Table structure
 
 
 ```python
@@ -254,13 +318,13 @@ d1 = '2019-01-10'
 d2 = '2019-01-13'
 
 new_recs = []
-with td.difference(d1, d2, upd) as delta:
-    for row in delta:
-        print(row)
+with td.difference(d1, d2, upd) as d:
+    for row in d:
         td.push(row)
+        print(row)
 ```
 
-All pushed records will be flushed on exit context
+All records will be flushed to DB on context exit
 
 #### Async version
 
@@ -275,11 +339,11 @@ td = ch.discover('test1', upd).metrics('value')
 d1 = '2019-01-10'
 d2 = '2019-01-13'
 
-async with td.difference(d1, d2, upd) as delta:
-    async for row in delta:
+async with td.difference(d1, d2, upd) as d:
+    async for row in d:
         td.push(row)
 
-# Stop flush timer
+# Graceful unload
 ch.close()
 ```
 
@@ -288,49 +352,35 @@ ch.close()
 - [ ] Focus on CollapsingMergeTree
 
 
-#### Code generationm
-
-Next times after use table auto discovery you shoud use fixed layout. To to this easy try `TableDiscovery.pycode()`
-
-```python
-code = td.pycode()
-print(code)
-```
-
-will be returned
-
-```
-td = ch.discover('deals', columns={'id': 'Int64', 'uid': 'Int64', 'cid': 'String', 'sale': 'Int64', 'date': 'Date', 'date_time': 'DateTime', 'account_id': 'Int64'}).metrics(*['sale']).dimensions(*['date_time', 'account_id', 'cid', 'uid', 'id', 'date']).date(*['date']).idx(*['account_id', 'date'])
-```
 
 ## Синхронная версия
 
 ### Выполнение запроса и чтение всего результата сразу
 
 ```python
->>> from simplech import ClickHouse
->>> ch = ClickHouse(host='localhost', user='default')
->>> print(ch.select('SHOW DATABASES'))
+from simplech import ClickHouse
+ch = ClickHouse(host='localhost', user='default')
+print(ch.select('SHOW DATABASES'))
 ```
 
 ### Получение записей потоком
 
 ```python
->>> for obj in ch.objects_stream('SELECT * from events'):
->>>     print(obj)
+for obj in ch.objects_stream('SELECT * from events'):
+    print(obj)
 ```
 
 ### Выполнение SQL операций
 
 ```python
->>> ch.run('CREATE TABLE my_table (name String, num UInt64) ENGINE=Log ')
+ch.run('CREATE TABLE my_table (name String, num UInt64) ENGINE=Log ')
 ```
 ### Запись данных
 
 ```python
->>> for i in range(1, 1500):
->>> 	ch.push('my_table', {'name': 'hux', 'num': i})
->>> ch.flush('my_table')
+for i in range(1, 1500):
+	ch.push('my_table', {'name': 'hux', 'num': i})
+ch.flush('my_table')
 ```
 
 или
@@ -339,11 +389,29 @@ td = ch.discover('deals', columns={'id': 'Int64', 'uid': 'Int64', 'cid': 'String
 >>> ch.flush_all()
 ```
 
-### License
+better approach
+
+
+```python
+
+my_data = [
+    {'name': 'lalala', 'value': 1}, 
+    {'name': 'bababa', 'value': 2}, 
+    {'name': 'nanana'}
+]
+
+with ch.table('mytbl') as c:
+    for rec in my_data:
+        c.push(record)
+```
+
+all data will be flushed on exit context
+
+## License
 
 The MIT License (MIT)
 
-Copyright (c) 2018 Dmitry Rodin
+Copyright (c) 2018-2019 Dmitry Rodin
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
