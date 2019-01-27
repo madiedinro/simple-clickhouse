@@ -10,7 +10,7 @@ clean-build:
 
 sdist-upload:
 	python setup.py sdist
-	twine upload dist/*
+	source .env ; twine upload dist/* --skip-existing
 
 
 upload: clean-build sdist-upload clean-build clean-pyc
