@@ -266,8 +266,8 @@ class ClickHouse(BaseClickHouse):
     def _init(self):
         self.conn_class = http.client.HTTPSConnection if self.scheme == 'https' else http.client.HTTPConnection
 
-    def table(self, table):
-        return WriterContext(ch=self, table=table)
+    def table(self, table, **options):
+        return WriterContext(ch=self, table=table, **options)
 
     def flush(self, table):
         """
