@@ -111,7 +111,9 @@ class BaseClickHouse():
         self.flush_every = 5
         self._flush_timer = None
         self.loop = loop
-        self.session_id = session_id or str(time())
+        if session and session_id is None:
+            session_id = str(time())
+        self.session_id = session_id
         self.conn_class = None
 
         # init loop and others
