@@ -61,6 +61,7 @@ class BaseClickHouse():
     debug: (bool) Переключение логов в режим отладки. Default to `False`.
     buffer_limit: (int) Буффер записи на таблицу. При достижении будет произведена запись в БД. Default to `1000`.
     loop: (EventLoop, None) При необходимости указать конкретный loop (для асинхронной версии). Default to `None`.
+    timeout: (int) Время ожидания выполнения запроса. Default `10`.
     """
 
     def __init__(self,
@@ -74,7 +75,8 @@ class BaseClickHouse():
                  dsn=None,
                  debug=False,
                  loop=None,
-                 buffer_limit=1000):
+                 buffer_limit=1000,
+                 timeout=10):
 
         self.scheme = 'http'
 
@@ -107,7 +109,7 @@ class BaseClickHouse():
         self.base_url = f"{self.host}:{self.port}"
         self._buffer = defaultdict(Buffer)
         self._buffer_limit = buffer_limit
-        self.timeout = 10
+        self._timeout = timeout
         self.flush_every = 5
         self._flush_timer = None
         self.loop = loop
@@ -254,11 +256,11 @@ class AsyncClickHouse(BaseClickHouse):
         if not method:
             method = 'post' if body else 'get'
         logger.debug(
-            f"Making query to {self.base_url} with %s. timeout:{self.timeout}", self._build_params(sql_query))
+            f"Making query to {self.base_url} with %s. timeout:{self._timeout}", self._build_params(sql_query))
         return session.request(
             method,
             url=self.scheme + '://' + self.base_url,
-            timeout=self.timeout,
+            timeout=self._timeout,
             params=self._build_params(sql_query),
             data=body, chunked=True)
 
