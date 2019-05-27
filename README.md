@@ -41,6 +41,7 @@ ch = AsyncClickHouse()
 - **flush_every:** [default: `5`] Every X seconds data will be flushed to db
 - **buffer_limit:** [default: `1000`] Буффер записи на таблицу. При достижении будет произведена запись в БД
 - **loop:** [default: `None`] При необходимости указать конкретный loop (для асинхронной версии)
+- **timeout:** [default: `10`] Время ожидания запроса в секундах
 
 Переменные окружения `CH_DSN`, `CLICKHOUSE_DSN`, при наличии которых, их значение будет использовано в качестве DSN.
 
