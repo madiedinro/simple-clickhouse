@@ -1,5 +1,5 @@
 
-__VERSION__ = '0.16.4'
+__VERSION__ = '0.16.5'
 
 from .discovery import TableDiscovery
 from .deltagen import DeltaGenerator
