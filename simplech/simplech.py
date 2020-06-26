@@ -94,8 +94,8 @@ class BaseClickHouse():
             parts = urllib.parse.urlparse(dsn_lookup)
             # temporary only http supported
             self.scheme = parts.scheme
-            self.host = parts.hostname
-            self.port = parts.port
+            self.host = parts.hostname 
+            self.port = parts.port or None
             self.db = str(parts.path).strip('/')
             self.user = parts.username
             self.password = parts.password
@@ -105,8 +105,10 @@ class BaseClickHouse():
             self.db = db or 'default'
             self.user = user
             self.password = password
-
-        self.base_url = f"{self.host}:{self.port}"
+        if self.port:
+            self.base_url = f"{self.host}:{self.port}"
+        else:
+            self.base_url = f"{self.host}"
         self._buffer = defaultdict(Buffer)
         self._buffer_limit = buffer_limit
         self._timeout = timeout
