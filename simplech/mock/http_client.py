@@ -99,7 +99,7 @@ class AsyncHttpClientMock(HttpClientMock):
 
     def process_select(self):
         super().process_select()
-        self.content = MockAsyncContent(self.mock_store.buff.getvalue())
+        self.content = MockAsyncContent(self.mock_store.buff.read())
 
     def _make_request(self, *args, **kwargs):
         return self

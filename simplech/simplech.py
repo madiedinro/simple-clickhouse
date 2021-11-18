@@ -151,6 +151,8 @@ class BaseClickHouse():
                 logger.exception('exc during push')
                 raise e
 
+        if table not in self._buffer:
+            self._buffer[table] = Buffer(buffer_limit=self._buffer_limit)
         self._buffer[table].append(doc)
         if self._buffer[table].full:
             self.flush(table)
@@ -200,8 +202,8 @@ class AsyncClickHouse(BaseClickHouse):
             logger.debug(f'flushing table {table} query {sql_query}')
             if buff and len(self._buffer[table]):
                 self._buffer[table].prepare()
-                self._buffer[table] = Buffer()
                 resp_data = await self.run(sql_query, data=buff.buffer)
+                self._buffer[table] = Buffer(buffer_limit=self._buffer_limit)
                 return resp_data
         except Exception:
             logger.exception('ch ex')
@@ -282,7 +284,7 @@ class ClickHouse(BaseClickHouse):
         if buff and len(buff):
             buff.prepare()
             result = self._flush(table, buff)
-            self._buffer[table] = Buffer()
+            self._buffer[table] = Buffer(buffer_limit=self._buffer_limit)
             return result
 
     def _flush(self, table, buff: io.BytesIO):
