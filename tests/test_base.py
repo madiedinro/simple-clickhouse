@@ -81,6 +81,63 @@ def test_ch_push():
     assert len(recs) == 2
 
 
+def test_ch_auto_flush():
+    ch = ClickHouse(buffer_limit=2)
+    ch.conn_class = create_factory()
+
+    ch.run('CREATE TABLE IF NOT EXISTS test1 (name String) ENGINE = Log()')
+    ch.push('textxx', {'name': 'lalala1'})
+    ch.push('textxx', {'name': 'nananan1'})
+    recs = [*ch.objects_stream('SELECT * FROM textxx')]
+    assert len(recs) == 2
+    ch.push('textxx', {'name': 'lalala2'})
+    recs = [*ch.objects_stream('SELECT * FROM textxx')]
+    assert len(recs) == 2
+    ch.push('textxx', {'name': 'nananan2'})
+    recs = [*ch.objects_stream('SELECT * FROM textxx')]
+    assert len(recs) == 4
+    ch.push('textxx', {'name': 'lalala3'})
+    ch.flush_all()
+    recs = [*ch.objects_stream('SELECT * FROM textxx')]
+    assert len(recs) == 5
+
+
+async def async_ch_auto_flush():
+    ch = AsyncClickHouse(buffer_limit=2)
+    ch.conn_class = create_factory(async_mode=True)
+
+    await ch.run('CREATE TABLE IF NOT EXISTS test1 (name String) ENGINE = Log()')
+    ch.push('textxx', {'name': 'lalala1'})
+    ch.push('textxx', {'name': 'nananan1'})
+    await asyncio.sleep(0.3)
+    recs = []
+    async for rec in ch.objects_stream('SELECT * FROM textxx'):
+        recs.append(rec)
+    assert len(recs) == 2
+    ch.push('textxx', {'name': 'lalala2'})
+    await asyncio.sleep(0.3)
+    recs = []
+    async for rec in ch.objects_stream('SELECT * FROM textxx'):
+        recs.append(rec)
+    assert len(recs) == 2
+    ch.push('textxx', {'name': 'nananan2'})
+    await asyncio.sleep(0.3)
+    recs = []
+    async for rec in ch.objects_stream('SELECT * FROM textxx'):
+        recs.append(rec)
+    assert len(recs) == 4
+    ch.push('textxx', {'name': 'lalala3'})
+    ch.flush_all()
+    await asyncio.sleep(0.3)
+    recs = []
+    async for rec in ch.objects_stream('SELECT * FROM textxx'):
+        recs.append(rec)
+    assert len(recs) == 5
+
+
+def test_async_ch_auto_flush():
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(async_ch_auto_flush())
 
 async def async_ch_differ():
 
